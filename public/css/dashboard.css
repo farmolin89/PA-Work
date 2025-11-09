@@ -69,7 +69,7 @@ header.new-header {
 .logo {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 24px;
 }
 
 .logo-icon {
@@ -179,6 +179,47 @@ header.new-header {
     background-color: rgba(0, 0, 0, 0.05);
 }
 
+/* ==================== ПРИВЕТСТВИЕ ==================== */
+/* ==================== ПРИВЕТСТВИЕ В ХЕДЕРЕ ==================== */
+.greeting-section {
+    padding: 12px 24px;
+    background: var(--glass-effect);
+    backdrop-filter: blur(10px);
+    border-radius: 50px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    transition: var(--transition);
+}
+
+.greeting-section:hover {
+    background: white;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.greeting-text {
+    font-size: 1.2rem;
+    font-weight: 600;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 0;
+    white-space: nowrap;
+    animation: fadeIn 0.6s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 /* ==================== ОСНОВНАЯ СЕТКА ==================== */
 .main-layout {
     display: grid;
@@ -263,7 +304,8 @@ header.new-header {
 }
 
 .stats-container.main-stats {
-    margin-top: auto;
+    margin-top: 20px;
+    align-items: start;
 }
 
 .stat-item,

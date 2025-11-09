@@ -55,8 +55,8 @@ module.exports = (db) => {
         create: async (testId, questionData) => {
             const { type, text, explain, options, correct, match_prompts, match_answers } = questionData;
             
+            const questionId = uuidv4();
             await db.transaction(async trx => {
-                const questionId = uuidv4();
                 await trx('questions').insert({
                     id: questionId,
                     test_id: testId,
@@ -80,6 +80,8 @@ module.exports = (db) => {
                     }
                 }
             });
+            
+            return questionId;
         },
 
         /**

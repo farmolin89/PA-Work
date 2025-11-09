@@ -24,11 +24,18 @@ function updateTripCard(trips, employees, organizations) {
     let upcomingCount = 0;
     let completedCount = 0; 
 
+    // Считаем командировки с учётом участников (каждый участник = отдельная командировка)
     trips.forEach(trip => {
         const status = getTripStatus(trip);
-        if (status === 'active') { activeCount++; } 
-        else if (status === 'upcoming') { upcomingCount++; } 
-        else { completedCount++; }
+        const participantCount = trip.participants ? trip.participants.length : 0;
+        
+        if (status === 'active') { 
+            activeCount += participantCount; 
+        } else if (status === 'upcoming') { 
+            upcomingCount += participantCount; 
+        } else { 
+            completedCount += participantCount; 
+        }
     });
 
     const tripStatsContainer = document.querySelector('.trip-stats');

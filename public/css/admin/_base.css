@@ -69,7 +69,7 @@ body {
     height: 36px;
     border-radius: 50%;
     border-left-color: var(--primary); /* Синий цвет */
-    animation: spin 1s ease infinite;
+    animation: spin 1s ease infinite, fadeIn 0.2s ease-in-out;
     margin: 2rem auto;
 }
 

@@ -12,7 +12,7 @@ const handleValidationErrors = (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const formattedErrors = errors.array().map(err => ({
-            field: err.param,
+            field: err.param || 'unknown',
             message: `Поле '${translateField(err.param)}': ${err.msg}`
         }));
         // Возвращаем ошибку в виде объекта, чтобы ее мог перехватить

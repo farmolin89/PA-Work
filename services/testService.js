@@ -127,11 +127,29 @@ module.exports = (db) => {
          * Удаляет тест по его ID.
          */
         deleteTest: async (testId) => {
-            const deletedRows = await db('tests').where({ id: testId }).del();
-            if (deletedRows === 0) {
-                throw new Error(`Тест с ID ${testId} не найден.`);
-            }
-            return deletedRows;
+            // SQLite требует явного удаления связанных данных в некоторых случаях
+            await db.transaction(async trx => {
+                // Удаляем настройки теста
+                await trx('test_settings').where({ test_id: testId }).del();
+                
+                // Получаем все вопросы
+                const questions = await trx('questions').where({ test_id: testId }).select('id');
+                const questionIds = questions.map(q => q.id);
+                
+                // Удаляем варианты ответов для этих вопросов
+                if (questionIds.length > 0) {
+                    await trx('options').whereIn('question_id', questionIds).del();
+                }
+                
+                // Удаляем вопросы
+                await trx('questions').where({ test_id: testId }).del();
+                
+                // Удаляем сам тест
+                const deletedRows = await trx('tests').where({ id: testId }).del();
+                if (deletedRows === 0) {
+                    throw new Error(`Тест с ID ${testId} не найден.`);
+                }
+            });
         },
 
         /**
@@ -238,7 +256,7 @@ module.exports = (db) => {
             const totalAttemptsAllStatuses = Number(totalAttemptsRow.totalAttempts) || 0;
 
             const summaryStats = {
-                totalAttempts: completedCount,
+                totalAttempts: totalAttemptsAllStatuses,
                 totalAttemptsAllStatuses,
                 averagePercentage: completedCount > 0 && completedStatsRow.averagePercentage ? Math.round(completedStatsRow.averagePercentage) : 0,
                 passRate: completedCount > 0 ? Math.round((passedCount / completedCount) * 100) : 0,

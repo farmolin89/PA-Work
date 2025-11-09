@@ -45,7 +45,7 @@ describe('employeeService: calculateLevel', () => {
             expect(result.level).toBe(5);
             expect(result.name).toBe('Ветеран командировок');
             expect(result.progress).toBe(324); // 500 - 177 + 1
-            expect(result.max).toBe(9999);
+            expect(result.max).toBe(365);
         });
     });
 

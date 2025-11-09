@@ -72,7 +72,7 @@ function initializeEventListeners() {
     const NAVIGATION_PAGES = new Set(['welcome', 'tests', 'create-test', 'analytics']);
 
     document.body.addEventListener('click', (e) => {
-        const navElement = e.target.closest('.nav-link[data-page], .sidebar-footer .btn[data-page], #main-content-area .btn[data-page]');
+        const navElement = e.target.closest('.nav-link[data-page], .sidebar-footer .btn[data-page], #main-content-area .btn[data-page], .feature-card[data-page]');
         if (navElement) {
             const pageId = navElement.dataset.page;
             if (!pageId || !NAVIGATION_PAGES.has(pageId)) {

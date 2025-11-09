@@ -34,16 +34,70 @@ export function prependNewResultRow(result) {
 
     const isViewingCorrectTest = document.querySelector(`#tab-results.active`) && String(currentTestId) === String(result.testId);
     
-    if (isViewingCorrectTest && currentPage === 1 && currentSearch === '' && currentSort.column === 'date' && currentSort.order === 'desc') {
-        console.log('✅ Условия совпадают. Перезагружаем таблицу результатов...');
-        loadResults();
-    } else {
-        console.log('ℹ️ Условия для немедленной перезагрузки не совпадают. Помечаем вкладку как требующую обновления.');
-        const tabButton = document.querySelector('.tab-button[data-tab="results"]');
-        if (tabButton) {
-            tabButton.classList.add('has-update');
-            console.log('✅ Вкладка "Результаты" помечена классом has-update.');
+    if (isViewingCorrectTest) {
+        // Новые результаты ВСЕГДА добавляем сверху таблицы независимо от сортировки
+        const tbody = document.querySelector('.admin-table tbody');
+        if (tbody) {
+            // Используем данные напрямую из SSE (они уже полные)
+            const score = result.score ?? 0;
+            const total = result.total ?? 0;
+            const percentage = result.percentage ?? 0;
+            const passed = result.passed ?? false;
+            const fio = result.fio || 'Неизвестно';
+            const date = result.date || new Date().toISOString();
+            const status = result.status || 'completed';
+            
+            let statusClass, statusText, percentageClass;
+            
+            if (status === 'pending_review') {
+                statusClass = 'status-pending';
+                statusText = 'На проверке';
+                percentageClass = 'status-pending';
+            } else {
+                statusClass = passed ? 'status-pass' : 'status-fail';
+                statusText = passed ? 'СДАН' : 'НЕ СДАН';
+                percentageClass = passed ? 'status-pass' : 'status-fail';
+            }
+            
+            const rowClass = status === 'pending_review' ? 'needs-review new-result-highlight' : 'new-result-highlight';
+            const rowTitle = status === 'pending_review' ? "Нажмите для ручной проверки" : "Нажмите для просмотра протокола";
+            
+            const newRow = document.createElement('tr');
+            newRow.setAttribute('data-id', result.id);
+            newRow.setAttribute('data-fio', escapeHTML(fio));
+            newRow.className = rowClass;
+            newRow.style.cursor = 'pointer';
+            newRow.title = rowTitle;
+            
+            newRow.innerHTML = `
+                <td><input type="checkbox" class="result-checkbox" data-id="${result.id}"></td>
+                <td>${escapeHTML(fio)}</td>
+                <td>${score}/${total}</td>
+                <td><span class="status-label ${statusClass}">${statusText}</span></td>
+                <td class="percentage-cell ${percentageClass}">${percentage}%</td>
+                <td>${new Date(date).toLocaleString('ru-RU')}</td>
+                <td class="actions-cell">
+                    <button type="button" class="btn-icon delete" data-id="${result.id}" title="Удалить"><i class="fas fa-trash-alt"></i></button>
+                </td>
+            `;
+            
+            tbody.insertBefore(newRow, tbody.firstChild);
+            
+            // Убираем подсветку через 3 секунды
+            setTimeout(() => {
+                newRow.classList.remove('new-result-highlight');
+            }, 3000);
+            
+            console.log('✅ Новый результат добавлен в начало таблицы.');
+            return;
         }
+    }
+    
+    // Для всех остальных случаев просто помечаем вкладку
+    const tabButton = document.querySelector('.tab-button[data-tab="results"]');
+    if (tabButton) {
+        tabButton.classList.add('has-update');
+        console.log('✅ Вкладка "Результаты" помечена классом has-update для обновления при следующем просмотре.');
     }
 }
 

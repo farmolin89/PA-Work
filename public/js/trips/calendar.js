@@ -151,26 +151,14 @@ function renderEmployeeRow(employee) {
         }
     });
 
-    // --- ОТРИСОВКА КОМАНДИРОВОК (логика адаптирована) ---
-    // 1. Получаем все ИНДИВИДУАЛЬНЫЕ поездки этого сотрудника
+    // --- ОТРИСОВКА КОМАНДИРОВОК ---
     const employeeTrips = utils.getEmployeeTrips(employee.id).filter(trip => {
         const tripStart = new Date(trip.startDate);
         const tripEnd = new Date(trip.endDate);
         return tripStart <= lastDayOfMonth && tripEnd >= firstDayOfMonth;
     });
     
-    // 2. Отрисовываем каждую индивидуальную поездку
     employeeTrips.forEach(trip => {
-        // ИЗМЕНЕНИЕ: Теперь, чтобы отобразить всех участников в подсказке,
-        // мы должны найти все поездки с таким же groupId.
-        // Мы делаем это здесь, а не в `utils`, чтобы не засорять кэш.
-        const allParticipants = trip.groupId 
-            ? state.trips.filter(t => t.groupId === trip.groupId).map(t => t.employeeId)
-            : [trip.employeeId];
-        
-        // Создаем "виртуальный" объект поездки, похожий на старый, для передачи в tooltip
-        const virtualTripForTooltip = { ...trip, participants: allParticipants };
-
         const startDate = new Date(trip.startDate);
         const endDate = new Date(trip.endDate);
         const startsInThisMonth = startDate.getMonth() === month;
@@ -199,15 +187,24 @@ function renderEmployeeRow(employee) {
             tripItem.style.backgroundColor = organization ? organization.color : '#3498db';
             tripItem.style.gridColumn = `${visibleStart + 1} / span ${duration}`;
             
-            // КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Сохраняем ID ИНДИВИДУАЛЬНОЙ поездки
+            // Сохраняем ID командировки
             tripItem.dataset.tripId = trip.id; 
-            // Сохраняем и groupId для возможного использования в будущем
-            if (trip.groupId) {
-                tripItem.dataset.groupId = trip.groupId;
-            }
             
-            // Передаем виртуальный объект в обработчик тултипа
-            tripItem.tripDataForTooltip = virtualTripForTooltip;
+            // Для групповых командировок создаем виртуальный объект с массивом participants для тултипа
+            if (trip.groupId) {
+                const groupTrips = state.trips.filter(t => t.groupId === trip.groupId);
+                const participantIds = groupTrips.map(t => t.employeeId).filter(id => id != null);
+                tripItem.tripDataForTooltip = {
+                    ...trip,
+                    participants: participantIds
+                };
+            } else {
+                // Для одиночных командировок создаем массив с одним участником
+                tripItem.tripDataForTooltip = {
+                    ...trip,
+                    participants: trip.employeeId ? [trip.employeeId] : []
+                };
+            }
 
             const dynamicStatus = utils.getTripDynamicStatus(trip);
             tripItem.classList.add(dynamicStatus.className);

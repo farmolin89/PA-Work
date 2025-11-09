@@ -61,17 +61,17 @@ function renderWelcomePage() {
             <p class="welcome-subtitle">Управляйте учебными тестами, создавайте новые задания, отслеживайте результаты и анализируйте успеваемость.</p>
             
             <div class="feature-cards">
-                <div class="feature-card">
+                <div class="feature-card" data-page="create-test" style="cursor: pointer;">
                     <div class="feature-icon"><i class="fas fa-plus"></i></div>
                     <h3 class="feature-title">Создание тестов</h3>
                     <p class="feature-description">Создавайте тесты с различными типами вопросов и настраиваемыми параметрами.</p>
                 </div>
-                <div class="feature-card">
+                <div class="feature-card" data-page="analytics" style="cursor: pointer;">
                     <div class="feature-icon"><i class="fas fa-chart-line"></i></div>
                     <h3 class="feature-title">Аналитика</h3>
                     <p class="feature-description">Получайте детальную статистику по результатам тестирования и успеваемости.</p>
                 </div>
-                <div class="feature-card">
+                <div class="feature-card" data-page="tests" style="cursor: pointer;">
                     <div class="feature-icon"><i class="fas fa-tasks"></i></div>
                     <h3 class="feature-title">Управление тестами</h3>
                     <p class="feature-description">Организуйте тесты по категориям, настраивайте параметры и отслеживайте прогресс.</p>

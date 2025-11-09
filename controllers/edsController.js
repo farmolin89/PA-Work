@@ -34,7 +34,7 @@ class EdsController {
         res.status(200).json(signature);
       } else {
         // Если запись не найдена, отправляем корректный статус 404
-        res.status(404).json({ message: 'Запись ЭЦП с таким ID не найдена.' });
+        res.status(404).json({ errors: [{ message: 'Запись ЭЦП с таким ID не найдена.' }] });
       }
     } catch (error) {
       console.error('Ошибка в edsController.getById:', error);
@@ -79,7 +79,7 @@ class EdsController {
       // Проверяем, является ли ошибка ошибкой уникальности для поля ecp_number
       if (error.code === 'SQLITE_CONSTRAINT' && error.message.includes('digital_signatures.ecp_number')) {
           // Если да, отправляем понятное сообщение об ошибке с кодом 409 (Conflict)
-          return res.status(409).json({ message: 'Сотрудник с таким номером ЭЦП уже существует.' });
+          return res.status(409).json({ errors: [{ message: 'Сотрудник с таким номером ЭЦП уже существует.' }] });
       }
 
       // Для всех остальных ошибок, передаем их в глобальный обработчик
@@ -100,7 +100,7 @@ class EdsController {
       if (updatedSignature) {
         res.status(200).json(updatedSignature);
       } else {
-        res.status(404).json({ message: 'Не удалось найти запись для обновления.' });
+        res.status(404).json({ errors: [{ message: 'Не удалось найти запись для обновления.' }] });
       }
     } catch (error) {
       console.error('Ошибка в edsController.update:', error);
@@ -108,7 +108,7 @@ class EdsController {
       // Проверяем, является ли ошибка ошибкой уникальности для поля ecp_number
       if (error.code === 'SQLITE_CONSTRAINT' && error.message.includes('digital_signatures.ecp_number')) {
           // Если да, отправляем понятное сообщение об ошибке с кодом 409 (Conflict)
-          return res.status(409).json({ message: 'Этот номер ЭЦП уже присвоен другому сотруднику.' });
+          return res.status(409).json({ errors: [{ message: 'Этот номер ЭЦП уже присвоен другому сотруднику.' }] });
       }
       
       // Для всех остальных ошибок, передаем их в глобальный обработчик
@@ -125,10 +125,10 @@ class EdsController {
       const deletedRows = await edsService.delete(id);
       
       if (deletedRows > 0) {
-        // Успешное удаление. Отправляем статус 204 No Content без тела ответа.
-        res.status(204).send();
+        // Успешное удаление. Отправляем статус 200 с подтверждением
+        res.status(200).json({ message: 'Запись успешно удалена.' });
       } else {
-        res.status(404).json({ message: 'Запись для удаления не найдена.' });
+        res.status(404).json({ errors: [{ message: 'Запись для удаления не найдена.' }] });
       }
     } catch (error) {
       console.error('Ошибка в edsController.delete:', error);

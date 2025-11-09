@@ -7,11 +7,28 @@
 
 /* --- 1. Контейнер и сама таблица --- */
 
+#resultsTableContainer {
+    position: relative;
+    min-height: 200px;
+}
+
 .table-container {
     background-color: white;
     border-radius: var(--border-radius);
     box-shadow: var(--box-shadow);
     overflow-x: auto; /* Для адаптивности на малых экранах */
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 table.admin-table {
@@ -50,8 +67,60 @@ table.admin-table tbody tr:last-child td {
     border-bottom: none;
 }
 
+table.admin-table tbody tr {
+    animation: slideIn 0.3s ease-out backwards;
+}
+
+table.admin-table tbody tr:nth-child(1) { animation-delay: 0.05s; }
+table.admin-table tbody tr:nth-child(2) { animation-delay: 0.08s; }
+table.admin-table tbody tr:nth-child(3) { animation-delay: 0.11s; }
+table.admin-table tbody tr:nth-child(4) { animation-delay: 0.14s; }
+table.admin-table tbody tr:nth-child(5) { animation-delay: 0.17s; }
+table.admin-table tbody tr:nth-child(6) { animation-delay: 0.20s; }
+table.admin-table tbody tr:nth-child(7) { animation-delay: 0.23s; }
+table.admin-table tbody tr:nth-child(8) { animation-delay: 0.26s; }
+table.admin-table tbody tr:nth-child(9) { animation-delay: 0.29s; }
+table.admin-table tbody tr:nth-child(10) { animation-delay: 0.32s; }
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
 table.admin-table tbody tr:hover {
     background-color: var(--light);
+    transition: background-color 0.2s ease;
+}
+
+/* --- Подсветка новых результатов --- */
+table.admin-table tbody tr.new-result-highlight {
+    animation: highlightFade 3s ease-in-out, slideInTop 0.5s ease-out;
+}
+
+@keyframes highlightFade {
+    0% {
+        background-color: #fff3cd;
+    }
+    100% {
+        background-color: transparent;
+    }
+}
+
+@keyframes slideInTop {
+    from {
+        opacity: 0;
+        transform: translateY(-30px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 
 /* --- 3a. Чекбоксы для таблиц с результатами --- */
@@ -103,10 +172,17 @@ table.admin-table tbody tr:hover {
     gap: 0.5rem;
     margin-top: 1.5rem;
     flex-wrap: wrap;
+    animation: fadeIn 0.4s ease-in-out;
 }
 
 #paginationContainer .btn {
     min-width: 44px; /* Для красивых круглых кнопок с одной цифрой */
+    transition: all 0.2s ease;
+}
+
+#paginationContainer .btn:hover:not([disabled]) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
 }
 
 /* --- НОВОЕ: Стили для ячейки с действиями --- */

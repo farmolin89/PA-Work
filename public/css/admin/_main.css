@@ -110,6 +110,7 @@
     text-align: center; padding: 3rem 2rem; color: var(--gray);
     background-color: var(--light); border: 2px dashed var(--gray-light);
     border-radius: var(--border-radius); margin: 1rem 0;
+    animation: fadeIn 0.3s ease-in-out;
 }
 .empty-state-message i { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; }
 
