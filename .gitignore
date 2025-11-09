@@ -6,17 +6,17 @@ yarn-error.log*
 lerna-debug.log*
 
 # Файлы базы данных
-*.db
-*.sqlite
-*.sqlite3
-database/
+# *.db
+# *.sqlite
+# *.sqlite3
+# database/
 
 # Переменные окружения
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# .env
+# .env.local
+# .env.development.local
+# .env.test.local
+# .env.production.local
 
 # Зависимости
 node_modules/
