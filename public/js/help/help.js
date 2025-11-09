@@ -41,12 +41,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const subContents = container.querySelectorAll('.sub-tab-content');
         subTabs.forEach(st => {
             st.addEventListener('click', () => {
+                console.log('Клик по под-вкладке:', st.dataset.sub);
                 subTabs.forEach(s => s.classList.remove('active'));
                 subContents.forEach(sc => sc.classList.remove('active'));
                 st.classList.add('active');
                 const subId = st.dataset.sub;
                 const el = container.querySelector(`#${subId}`);
-                if (el) el.classList.add('active');
+                console.log('Найден элемент:', el);
+                if (el) {
+                    el.classList.add('active');
+                    console.log('Добавлен класс active к:', subId);
+                } else {
+                    console.error('Элемент не найден:', subId);
+                }
             });
         });
     });
@@ -748,45 +755,6 @@ function tempToEmf(t, type) {
     return c.a0 + c.a1 * t + c.a2 * t * t + c.a3 * t * t * t;
 }
 
-// Обновление информации о выбранной термопаре
-function updateTCInfo() {
-    const typeSelect = document.getElementById('tc-type');
-    const emfInput = document.getElementById('tc-emf');
-    const tempInput = document.getElementById('tc-temp');
-    const classSelect = document.getElementById('tc-class');
-    
-    const type = TC_TYPES[typeSelect.value];
-    if (!type) return;
-    
-    const infoEl = document.getElementById('tc-info');
-    infoEl.textContent = `${type.name}: ${type.description}`;
-    
-    // Обновляем диапазон и коэффициент Зеебека
-    updateTCTypeInfo(type);
-    
-    // Пересчитываем значения при смене типа (если есть данные)
-    const emfValue = parseFloat(emfInput.value);
-    const tempValue = parseFloat(tempInput.value);
-    
-    if (!isNaN(emfValue)) {
-        // Если есть ЭДС, пересчитываем температуру для нового типа
-        const temp = emfToTemp(emfValue, type);
-        tempInput.value = temp.toFixed(2);
-        checkTCRange(temp, type);
-        updateTCError(temp, emfValue, type, classSelect.value);
-    } else if (!isNaN(tempValue)) {
-        // Если есть температура, пересчитываем ЭДС для нового типа
-        const emf = tempToEmf(tempValue, type);
-        emfInput.value = emf.toFixed(3);
-        checkTCRange(tempValue, type);
-        updateTCError(tempValue, emf, type, classSelect.value);
-    } else {
-        // Если нет данных, очищаем погрешности
-        clearTCError();
-    }
-}
-
-// Обновление информации о типе термопары (диапазон и коэффициент Зеебека)
 function updateTCTypeInfo(type) {
     const rangeEl = document.getElementById('tc-range');
     const seebeckEl = document.getElementById('tc-seebeck');
@@ -1378,365 +1346,685 @@ function autoConvertUnits(sourceType) {
     }
 }
 
-/* ========== Калибровка СИ ========== */
-
-// Хранилище СИ (в реальном приложении это будет база данных)
-let siList = [];
-
-// Инструкции по калибровке для разных типов СИ
-const CALIBRATION_INSTRUCTIONS = {
-    flow: {
-        title: 'Калибровка расходомера',
-        steps: [
-            {
-                title: 'Подготовка к калибровке',
-                content: 'Убедитесь, что расходомер чист и находится в рабочем состоянии. Проверьте отсутствие механических повреждений.'
-            },
-            {
-                title: 'Подключение к эталонной установке',
-                content: 'Подключите расходомер к эталонной расходомерной установке. Убедитесь в герметичности соединений.'
-            },
-            {
-                title: 'Проверка нулевой точки',
-                content: 'При нулевом расходе показания прибора должны быть близки к нулю. Зафиксируйте показания.'
-            },
-            {
-                title: 'Калибровка в контрольных точках',
-                content: 'Проведите измерения в контрольных точках диапазона: 20%, 50%, 80%, 100% от максимального расхода. Для каждой точки:<br>- Установите расход на эталонной установке<br>- Дождитесь стабилизации показаний<br>- Запишите показания эталона и поверяемого прибора<br>- Рассчитайте погрешность'
-            },
-            {
-                title: 'Анализ результатов',
-                content: 'Рассчитайте относительную погрешность для каждой точки:<br>δ = ((Q_изм - Q_эт) / Q_эт) × 100%<br>Убедитесь, что погрешность не превышает допустимых значений.'
-            },
-            {
-                title: 'Оформление результатов',
-                content: 'Заполните протокол калибровки с указанием:<br>- Даты и условий калибровки<br>- Использованного эталона<br>- Результатов измерений<br>- Выводов о пригодности СИ'
-            }
-        ]
-    },
-    temperature: {
-        title: 'Калибровка термометра',
-        steps: [
-            {
-                title: 'Подготовка термостата',
-                content: 'Подготовьте термостат с жидкостью соответствующего диапазона. Для 0-100°C используйте воду, для высоких температур - масло.'
-            },
-            {
-                title: 'Установка датчиков',
-                content: 'Установите эталонный термометр и поверяемый датчик в термостат на одинаковой глубине. Расстояние между датчиками 20-30 мм.'
-            },
-            {
-                title: 'Калибровка в контрольных точках',
-                content: 'Проведите измерения в 5-7 точках диапазона. Для каждой точки:<br>- Установите температуру на термостате<br>- Дождитесь стабилизации (не менее 15 мин)<br>- Запишите показания эталона и поверяемого прибора'
-            },
-            {
-                title: 'Расчет погрешности',
-                content: 'Рассчитайте абсолютную погрешность:<br>Δt = t_изм - t_эт<br>Сравните с допустимой погрешностью класса точности.'
-            },
-            {
-                title: 'Оформление протокола',
-                content: 'Составьте протокол калибровки согласно ГОСТ 8.558-2009 или МИ 1451-86.'
-            }
-        ]
-    },
-    pressure: {
-        title: 'Калибровка манометра',
-        steps: [
-            {
-                title: 'Подготовка грузопоршневого манометра',
-                content: 'Подготовьте эталонный грузопоршневой манометр соответствующего класса точности.'
-            },
-            {
-                title: 'Подключение',
-                content: 'Подключите поверяемый манометр и эталон к источнику давления. Проверьте герметичность.'
-            },
-            {
-                title: 'Проверка нулевой точки',
-                content: 'При атмосферном давлении стрелка должна указывать на ноль. Зафиксируйте показания.'
-            },
-            {
-                title: 'Калибровка при повышении давления',
-                content: 'Проведите измерения в точках: 0, 25%, 50%, 75%, 100% диапазона. Записывайте показания обоих приборов.'
-            },
-            {
-                title: 'Калибровка при понижении давления',
-                content: 'Повторите измерения при понижении давления для определения гистерезиса.'
-            },
-            {
-                title: 'Расчет вариации',
-                content: 'Вариация показаний = |P_возр - P_пониж|<br>Не должна превышать допустимого значения.'
-            }
-        ]
-    },
-    ph: {
-        title: 'Калибровка pH-метра',
-        steps: [
-            {
-                title: 'Подготовка буферных растворов',
-                content: 'Приготовьте стандартные буферные растворы с pH 4.01, 7.00, 10.01 (при 25°C).'
-            },
-            {
-                title: 'Промывка электрода',
-                content: 'Тщательно промойте электрод дистиллированной водой и просушите фильтровальной бумагой.'
-            },
-            {
-                title: 'Калибровка по двум точкам',
-                content: 'Погрузите электрод в буфер pH 7.00, дождитесь стабилизации. Откалибруйте прибор.<br>Затем повторите с буфером pH 4.01 или 10.01 (в зависимости от диапазона измерений).'
-            },
-            {
-                title: 'Проверка наклона характеристики',
-                content: 'Проверьте наклон характеристики электрода. Должен быть 54-60 мВ/pH при 25°C.'
-            },
-            {
-                title: 'Контроль третьей точки',
-                content: 'Проверьте показания в третьем буферном растворе. Отклонение не более ±0.05 pH.'
-            }
-        ]
-    },
-    other: {
-        title: 'Общая процедура калибровки',
-        steps: [
-            {
-                title: 'Изучение документации',
-                content: 'Изучите паспорт и методику поверки/калибровки для данного типа СИ.'
-            },
-            {
-                title: 'Подготовка эталонов',
-                content: 'Выберите эталонные СИ с погрешностью в 3-5 раз меньше поверяемого.'
-            },
-            {
-                title: 'Внешний осмотр',
-                content: 'Проведите внешний осмотр СИ, проверьте комплектность и отсутствие повреждений.'
-            },
-            {
-                title: 'Опробование',
-                content: 'Включите СИ, проверьте работоспособность всех функций.'
-            },
-            {
-                title: 'Определение метрологических характеристик',
-                content: 'Проведите измерения в контрольных точках диапазона. Рассчитайте погрешности.'
-            },
-            {
-                title: 'Оформление результатов',
-                content: 'Заполните протокол калибровки с указанием всех результатов и выводов.'
-            }
-        ]
-    }
-};
-
-// Открыть модальное окно добавления СИ
-function openAddSIModal() {
-    const modal = document.getElementById('add-si-modal');
-    modal.classList.add('active');
-    document.getElementById('add-si-form').reset();
-}
-
-// Закрыть модальное окно добавления СИ
-function closeAddSIModal() {
-    const modal = document.getElementById('add-si-modal');
-    modal.classList.remove('active');
-}
-
-// Добавить СИ в список
-function addSI() {
-    const type = document.getElementById('si-type').value;
-    const name = document.getElementById('si-name').value;
-    const serial = document.getElementById('si-serial').value;
-    const range = document.getElementById('si-range').value;
-    const accuracy = document.getElementById('si-accuracy').value;
-    const lastCalibration = document.getElementById('si-last-calibration').value;
-    const interval = document.getElementById('si-interval').value || 12;
-
-    if (!type || !name || !serial || !range || !accuracy) {
-        alert('Пожалуйста, заполните все обязательные поля');
-        return;
-    }
-
-    const si = {
-        id: Date.now(),
-        type,
-        name,
-        serial,
-        range,
-        accuracy,
-        lastCalibration,
-        interval: parseInt(interval),
-        addedDate: new Date().toISOString()
-    };
-
-    siList.push(si);
-    renderSIList();
-    closeAddSIModal();
-    
-    // Открыть инструкцию сразу после добавления
-    openCalibrationInstruction(si.id);
-}
-
-// Отобразить список СИ
-function renderSIList() {
-    const container = document.getElementById('si-list');
-    
-    if (siList.length === 0) {
-        container.innerHTML = `
-            <div class="si-empty-state">
-                <i class="fas fa-inbox"></i>
-                <p>Перечень СИ пуст. Добавьте первое средство измерения.</p>
-            </div>
-        `;
-        return;
-    }
-
-    container.innerHTML = siList.map(si => {
-        const status = getCalibrationStatus(si);
-        return `
-            <div class="si-card">
-                <div class="si-card-header">
-                    <div class="si-card-title">
-                        <h4>
-                            <span class="si-type-badge">${getTypeLabel(si.type)}</span>
-                            ${si.name}
-                        </h4>
-                        <p>Заводской №: ${si.serial}</p>
-                    </div>
-                    <div class="si-card-actions">
-                        <button class="btn-icon" onclick="openCalibrationInstruction(${si.id})" title="Инструкция по калибровке">
-                            <i class="fas fa-book"></i>
-                        </button>
-                        <button class="btn-icon btn-delete" onclick="deleteSI(${si.id})" title="Удалить">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                </div>
-                <div class="si-card-body">
-                    <div class="si-info-item">
-                        <span class="si-info-label">Диапазон измерений</span>
-                        <span class="si-info-value">${si.range}</span>
-                    </div>
-                    <div class="si-info-item">
-                        <span class="si-info-label">Точность</span>
-                        <span class="si-info-value">${si.accuracy}</span>
-                    </div>
-                    <div class="si-info-item">
-                        <span class="si-info-label">Последняя калибровка</span>
-                        <span class="si-info-value">${si.lastCalibration ? formatDate(si.lastCalibration) : 'Не указана'}</span>
-                    </div>
-                    <div class="si-info-item">
-                        <span class="si-info-label">Интервал калибровки</span>
-                        <span class="si-info-value">${si.interval} мес.</span>
-                    </div>
-                </div>
-                <div class="si-status ${status.class}">
-                    ${status.message}
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-// Получить статус калибровки
-function getCalibrationStatus(si) {
-    if (!si.lastCalibration) {
-        return {
-            class: 'status-warning',
-            message: '⚠️ Калибровка не проводилась'
-        };
-    }
-
-    const lastDate = new Date(si.lastCalibration);
-    const nextDate = new Date(lastDate);
-    nextDate.setMonth(nextDate.getMonth() + si.interval);
-    
-    const today = new Date();
-    const daysUntilNext = Math.floor((nextDate - today) / (1000 * 60 * 60 * 24));
-
-    if (daysUntilNext < 0) {
-        return {
-            class: 'status-expired',
-            message: `❌ Срок калибровки истёк ${Math.abs(daysUntilNext)} дн. назад`
-        };
-    } else if (daysUntilNext <= 30) {
-        return {
-            class: 'status-warning',
-            message: `⚠️ Калибровка требуется через ${daysUntilNext} дн. (до ${formatDate(nextDate)})`
-        };
-    } else {
-        return {
-            class: 'status-ok',
-            message: `✓ Действительна до ${formatDate(nextDate)} (${daysUntilNext} дн.)`
-        };
-    }
-}
-
-// Получить название типа СИ
-function getTypeLabel(type) {
-    const labels = {
-        flow: 'Расходомер',
-        temperature: 'Термометр',
-        pressure: 'Манометр',
-        ph: 'pH-метр',
-        other: 'Другое'
-    };
-    return labels[type] || type;
-}
-
-// Форматировать дату
-function formatDate(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('ru-RU');
-}
-
-// Удалить СИ
-function deleteSI(id) {
-    if (confirm('Вы уверены, что хотите удалить это средство измерения?')) {
-        siList = siList.filter(si => si.id !== id);
-        renderSIList();
-    }
-}
-
-// Открыть инструкцию по калибровке
-function openCalibrationInstruction(id) {
-    const si = siList.find(item => item.id === id);
-    if (!si) return;
-
-    const instruction = CALIBRATION_INSTRUCTIONS[si.type] || CALIBRATION_INSTRUCTIONS.other;
-    const modal = document.getElementById('calibration-instruction-modal');
-    const content = document.getElementById('calibration-instruction-content');
-
-    content.innerHTML = `
-        <div class="instruction-header">
-            <h4>${instruction.title}</h4>
-            <p><strong>СИ:</strong> ${si.name} (${si.serial})</p>
-            <p><strong>Диапазон:</strong> ${si.range}</p>
-            <p><strong>Класс точности:</strong> ${si.accuracy}</p>
-        </div>
-        <div class="instruction-steps">
-            ${instruction.steps.map((step, index) => `
-                <div class="instruction-step">
-                    <div class="step-number">${index + 1}</div>
-                    <div class="step-content">
-                        <h5>${step.title}</h5>
-                        <p>${step.content}</p>
-                    </div>
-                </div>
-            `).join('')}
-        </div>
-        <div class="instruction-footer">
-            <p><strong>Важно:</strong> После завершения калибровки не забудьте оформить протокол и обновить дату последней калибровки в карточке СИ.</p>
-        </div>
-    `;
-
-    modal.classList.add('active');
-}
-
-// Закрыть модальное окно инструкции
-function closeCalibrationModal() {
-    const modal = document.getElementById('calibration-instruction-modal');
-    modal.classList.remove('active');
-}
-
 // Закрытие модальных окон по клику вне контента
 document.addEventListener('click', (e) => {
     if (e.target.classList.contains('modal')) {
         e.target.classList.remove('active');
     }
 });
+
+
+// Локальное хранилище данных
+const CALIBRATION_STORAGE_KEY = 'calibration_instruments';
+
+// Примеры по умолчанию
+const DEFAULT_INSTRUMENTS = [
+    {
+        id: 1,
+        name: 'Расходомер электромагнитный ПРЭМ-50',
+        grsi: '51234-21',
+        type: 'flow',
+        lastCalibration: '2024-05-15',
+        interval: 12,
+        addedDate: new Date().toISOString()
+    },
+    {
+        id: 2,
+        name: 'Манометр образцовый МП3-У',
+        grsi: '67890-19',
+        type: 'pressure',
+        lastCalibration: '2024-08-20',
+        interval: 12,
+        addedDate: new Date().toISOString()
+    },
+    {
+        id: 3,
+        name: 'Термометр сопротивления Pt100',
+        grsi: '44210-24',
+        type: 'temperature',
+        lastCalibration: '2024-01-10',
+        interval: 12,
+        addedDate: new Date().toISOString()
+    }
+];
+
+let instruments = [];
+
+// Инициализация при загрузке страницы
+document.addEventListener('DOMContentLoaded', () => {
+    if (document.getElementById('instruments-list')) {
+        loadInstruments();
+        renderInstruments();
+        updateStats();
+    }
+});
+
+// Загрузка данных из localStorage
+function loadInstruments() {
+    try {
+        const stored = localStorage.getItem(CALIBRATION_STORAGE_KEY);
+        if (stored) {
+            instruments = JSON.parse(stored);
+        } else {
+            instruments = [...DEFAULT_INSTRUMENTS];
+            saveInstruments();
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки данных:', error);
+        instruments = [...DEFAULT_INSTRUMENTS];
+    }
+}
+
+// Сохранение данных в localStorage
+function saveInstruments() {
+    try {
+        localStorage.setItem(CALIBRATION_STORAGE_KEY, JSON.stringify(instruments));
+    } catch (error) {
+        console.error('Ошибка сохранения данных:', error);
+    }
+}
+
+// Определение типа прибора по названию
+function detectType(name) {
+    const lower = name.toLowerCase();
+    if (lower.includes('расход') || lower.includes('прэм') || lower.includes('flow')) {
+        return 'flow';
+    }
+    if (lower.includes('термо') || lower.includes('pt') || lower.includes('тсп') || lower.includes('temperature')) {
+        return 'temperature';
+    }
+    if (lower.includes('маном') || lower.includes('давлен') || lower.includes('pressure')) {
+        return 'pressure';
+    }
+    if (lower.includes('ph') || lower.includes('рh')) {
+        return 'ph';
+    }
+    return 'other';
+}
+
+// Форматирование типа для отображения
+function formatType(type) {
+    const types = {
+        flow: 'Расходомер',
+        temperature: 'Термометр',
+        pressure: 'Манометр',
+        ph: 'pH-метр',
+        other: 'Другое'
+    };
+    return types[type] || type;
+}
+
+// Расчет статуса калибровки
+function getCalibrationStatus(instrument) {
+    if (!instrument.lastCalibration) {
+        return {
+            class: 'status-warning',
+            text: '⚠️ Калибровка не проводилась',
+            daysLeft: null
+        };
+    }
+
+    const lastDate = new Date(instrument.lastCalibration);
+    const nextDate = new Date(lastDate);
+    nextDate.setMonth(nextDate.getMonth() + (instrument.interval || 12));
+
+    const today = new Date();
+    const daysLeft = Math.ceil((nextDate - today) / (1000 * 60 * 60 * 24));
+
+    if (daysLeft < 0) {
+        return {
+            class: 'status-danger',
+            text: `❌ Просрочено на ${Math.abs(daysLeft)} дн.`,
+            daysLeft
+        };
+    } else if (daysLeft <= 30) {
+        return {
+            class: 'status-warning',
+            text: `⚠️ Осталось ${daysLeft} дн. до ${formatDateShort(nextDate)}`,
+            daysLeft
+        };
+    } else {
+        return {
+            class: 'status-ok',
+            text: `✅ Действительна до ${formatDateShort(nextDate)} (${daysLeft} дн.)`,
+            daysLeft
+        };
+    }
+}
+
+// Форматирование даты
+function formatDateShort(date) {
+    if (!date) return '—';
+    const d = typeof date === 'string' ? new Date(date) : date;
+    return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+// Отображение списка приборов
+function renderInstruments() {
+    const container = document.getElementById('instruments-list');
+    if (!container) return;
+
+    const searchTerm = document.getElementById('search-input')?.value.toLowerCase() || '';
+    const typeFilter = document.getElementById('type-filter')?.value || 'all';
+
+    const filtered = instruments.filter(inst => {
+        const matchSearch = !searchTerm || 
+            inst.name.toLowerCase().includes(searchTerm) || 
+            inst.grsi.toLowerCase().includes(searchTerm);
+        const matchType = typeFilter === 'all' || inst.type === typeFilter;
+        return matchSearch && matchType;
+    });
+
+    if (filtered.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-search"></i>
+                <h3>Ничего не найдено</h3>
+                <p>Попробуйте изменить критерии поиска</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = filtered.map(inst => {
+        const status = getCalibrationStatus(inst);
+        return `
+            <div class="instrument-card" onclick="showInstruction(${inst.id})" style="cursor: pointer;">
+                <div class="instrument-header">
+                    <div class="instrument-info">
+                        <h4>${inst.name}</h4>
+                        <span class="instrument-type">${formatType(inst.type)}</span>
+                        <p class="instrument-grsi">ГРСИ: ${inst.grsi}</p>
+                    </div>
+                    <div class="instrument-actions">
+                        <button class="btn-icon-action btn-delete-instrument" onclick="event.stopPropagation(); deleteInstrument(${inst.id})" title="Удалить">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="instrument-details">
+                    <div class="detail-item">
+                        <span class="detail-label">Последняя поверка</span>
+                        <span class="detail-value">${formatDateShort(inst.lastCalibration)}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Интервал</span>
+                        <span class="detail-value">${inst.interval || 12} мес.</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Дата добавления</span>
+                        <span class="detail-value">${formatDateShort(inst.addedDate)}</span>
+                    </div>
+                </div>
+                <div class="instrument-status ${status.class}">${status.text}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Обновление статистики
+function updateStats() {
+    let total = instruments.length;
+    let warning = 0;
+    let expired = 0;
+
+    instruments.forEach(inst => {
+        const status = getCalibrationStatus(inst);
+        if (status.class === 'status-danger') {
+            expired++;
+        } else if (status.class === 'status-warning') {
+            warning++;
+        }
+    });
+
+    const totalEl = document.getElementById('total-count');
+    const warningEl = document.getElementById('warning-count');
+    const expiredEl = document.getElementById('expired-count');
+
+    if (totalEl) totalEl.textContent = total;
+    if (warningEl) warningEl.textContent = warning;
+    if (expiredEl) expiredEl.textContent = expired;
+}
+
+// Фильтрация списка
+function filterInstruments() {
+    renderInstruments();
+}
+
+// Открыть модальное окно добавления
+function openAddModal() {
+    const modal = document.getElementById('add-modal');
+    if (modal) {
+        modal.classList.add('active');
+        document.getElementById('instrument-name').value = '';
+        document.getElementById('instrument-grsi').value = '';
+    }
+}
+
+// Закрыть модальное окно добавления
+function closeAddModal() {
+    const modal = document.getElementById('add-modal');
+    if (modal) {
+        modal.classList.remove('active');
+    }
+}
+
+// Сохранить новый прибор
+function saveInstrument() {
+    const name = document.getElementById('instrument-name').value.trim();
+    const grsi = document.getElementById('instrument-grsi').value.trim();
+
+    if (!name || !grsi) {
+        showToast('Заполните обязательные поля', 'error');
+        return;
+    }
+
+    const newInstrument = {
+        id: Date.now(),
+        name,
+        grsi,
+        type: detectType(name),
+        lastCalibration: null,
+        interval: 12,
+        addedDate: new Date().toISOString()
+    };
+
+    instruments.unshift(newInstrument);
+    saveInstruments();
+    renderInstruments();
+    updateStats();
+    closeAddModal();
+    showToast('Прибор успешно добавлен! Нажмите на карточку для просмотра инструкции по калибровке.', 'info');
+}
+
+// Удалить прибор
+function deleteInstrument(id) {
+    if (confirm('Удалить этот прибор из реестра?')) {
+        instruments = instruments.filter(inst => inst.id !== id);
+        saveInstruments();
+        renderInstruments();
+        updateStats();
+        showToast('Прибор удален', 'info');
+    }
+}
+
+// Инструкции по типам приборов
+const INSTRUCTIONS = {
+    flow: {
+        title: 'Калибровка расходомера',
+        steps: [
+            { title: 'Подготовка', text: 'Проверьте отсутствие повреждений. Очистите измерительную часть.' },
+            { title: 'Подключение', text: 'Подключите расходомер к эталонной установке. Проверьте герметичность.' },
+            { title: 'Нулевая точка', text: 'При нулевом расходе показания должны быть близки к нулю.' },
+            { title: 'Контрольные точки', text: 'Проведите измерения в точках 20%, 50%, 80%, 100% диапазона.' },
+            { title: 'Расчет погрешности', text: 'δ = ((Q_изм - Q_эт) / Q_эт) × 100%. Сравните с допусками.' },
+            { title: 'Протокол', text: 'Заполните протокол калибровки с указанием всех результатов.' }
+        ]
+    },
+    temperature: {
+        title: 'Калибровка термометра',
+        steps: [
+            { title: 'Подготовка термостата', text: 'Настройте термостат с жидкостью соответствующего диапазона.' },
+            { title: 'Установка датчиков', text: 'Установите эталон и поверяемый датчик на одинаковой глубине.' },
+            { title: 'Стабилизация', text: 'Дождитесь стабилизации температуры (не менее 15 минут).' },
+            { title: 'Измерения', text: 'Проведите измерения в 5-7 точках диапазона.' },
+            { title: 'Погрешность', text: 'Δt = t_изм - t_эт. Сравните с допустимой погрешностью класса.' },
+            { title: 'Оформление', text: 'Составьте протокол согласно ГОСТ 8.558-2009.' }
+        ]
+    },
+    pressure: {
+        title: 'Калибровка манометра',
+        steps: [
+            { title: 'Подготовка эталона', text: 'Подготовьте грузопоршневой манометр нужного класса.' },
+            { title: 'Подключение', text: 'Подключите поверяемый манометр и эталон к источнику давления.' },
+            { title: 'Нулевая точка', text: 'Проверьте показания при атмосферном давлении.' },
+            { title: 'Повышение давления', text: 'Измерения в точках 0, 25%, 50%, 75%, 100% диапазона.' },
+            { title: 'Понижение давления', text: 'Повторите при понижении для определения гистерезиса.' },
+            { title: 'Вариация', text: 'Рассчитайте вариацию: |P_возр - P_пониж|.' }
+        ]
+    },
+    ph: {
+        title: 'Калибровка pH-метра',
+        steps: [
+            { title: 'Буферные растворы', text: 'Приготовьте стандартные буферы pH 4.01, 7.00, 10.01.' },
+            { title: 'Промывка', text: 'Промойте электрод дистиллированной водой.' },
+            { title: 'Первая точка', text: 'Калибровка по буферу pH 7.00.' },
+            { title: 'Вторая точка', text: 'Калибровка по буферу pH 4.01 или 10.01.' },
+            { title: 'Наклон', text: 'Проверьте наклон характеристики (54-60 мВ/pH при 25°C).' },
+            { title: 'Контроль', text: 'Проверьте третью точку. Отклонение не более ±0.05 pH.' }
+        ]
+    },
+    other: {
+        title: 'Общая процедура калибровки',
+        steps: [
+            { title: 'Документация', text: 'Изучите паспорт и методику поверки для данного СИ.' },
+            { title: 'Эталоны', text: 'Выберите эталоны с погрешностью в 3-5 раз меньше поверяемого.' },
+            { title: 'Внешний осмотр', text: 'Проверьте комплектность и отсутствие повреждений.' },
+            { title: 'Опробование', text: 'Проверьте работоспособность всех функций.' },
+            { title: 'Измерения', text: 'Проведите измерения в контрольных точках.' },
+            { title: 'Протокол', text: 'Оформите результаты согласно методике.' }
+        ]
+    }
+};
+
+// Показать инструкцию
+let currentInstrumentId = null;
+let editMode = false;
+
+function showInstruction(id) {
+    const inst = instruments.find(i => i.id === id);
+    if (!inst) return;
+
+    currentInstrumentId = id;
+    editMode = false;
+
+    const instruction = INSTRUCTIONS[inst.type] || INSTRUCTIONS.other;
+    const modal = document.getElementById('instruction-modal');
+    const content = document.getElementById('instruction-content');
+    const titleEl = document.getElementById('instruction-title');
+
+    if (!modal || !content) return;
+
+    // Загружаем сохраненную инструкцию или используем стандартную
+    const savedInstruction = inst.customInstruction || instruction;
+    const files = inst.files || [];
+
+    titleEl.textContent = `Инструкция: ${inst.name}`;
+
+    renderInstructionContent(inst, savedInstruction, files, false);
+    modal.classList.add('active');
+}
+
+function renderInstructionContent(inst, instruction, files, isEditMode) {
+    const content = document.getElementById('instruction-content');
+    const footer = document.getElementById('instruction-footer');
+
+    content.innerHTML = `
+        <div style="background: linear-gradient(135deg, #dbeafe, #eff6ff); padding: 24px; border-radius: 16px; margin-bottom: 24px;">
+            <h3 style="margin: 0 0 12px 0; color: #1e40af; font-size: 24px;">${instruction.title}</h3>
+            <p style="margin: 0; color: #475569;"><strong>Прибор:</strong> ${inst.name}</p>
+            <p style="margin: 4px 0 0 0; color: #475569;"><strong>ГРСИ:</strong> ${inst.grsi}</p>
+        </div>
+        <div id="instruction-steps">
+            ${instruction.steps.map((step, index) => `
+                <div class="instruction-step ${isEditMode ? 'edit-mode' : ''}" data-step-index="${index}">
+                    <div class="step-number">${index + 1}</div>
+                    <div class="step-text">
+                        <h4 contenteditable="${isEditMode}" data-field="title">${step.title}</h4>
+                        ${isEditMode ? 
+                            `<textarea data-field="text" rows="3">${step.text}</textarea>` :
+                            `<p>${step.text}</p>`
+                        }
+                    </div>
+                    ${isEditMode ? `
+                        <div class="step-actions">
+                            <button class="btn-step-action btn-step-delete" onclick="deleteStep(${index})" title="Удалить шаг">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('')}
+        </div>
+        ${isEditMode ? `
+            <button class="add-step-btn" onclick="addNewStep()">
+                <i class="fas fa-plus-circle"></i>
+                Добавить шаг
+            </button>
+        ` : ''}
+        <div class="file-upload-section">
+            <div class="file-upload-header">
+                <h4><i class="fas fa-paperclip"></i> Прикрепленные файлы</h4>
+                ${isEditMode ? `
+                    <button class="btn-save" onclick="openFileUpload()">
+                        <i class="fas fa-upload"></i>
+                        Загрузить файл
+                    </button>
+                ` : ''}
+            </div>
+            ${files.length > 0 ? `
+                <div class="file-list">
+                    ${files.map((file, index) => `
+                        <div class="file-item">
+                            <div class="file-info">
+                                <div class="file-icon">
+                                    <i class="fas fa-file-${getFileIcon(file.name)}"></i>
+                                </div>
+                                <div class="file-details">
+                                    <div class="file-name">${file.name}</div>
+                                    <div class="file-size">${formatFileSize(file.size)} • ${formatDate(file.uploadedAt)}</div>
+                                </div>
+                            </div>
+                            <div class="file-actions">
+                                <button class="btn-file-action btn-file-download" onclick="downloadFile(${currentInstrumentId}, ${index})" title="Скачать">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                                ${isEditMode ? `
+                                    <button class="btn-file-action btn-file-delete" onclick="deleteFile(${index})" title="Удалить">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            ` : `
+                <div style="text-align: center; padding: 32px; color: #94a3b8;">
+                    <i class="fas fa-folder-open" style="font-size: 48px; opacity: 0.3; margin-bottom: 12px;"></i>
+                    <p style="margin: 0;">Файлы не прикреплены</p>
+                </div>
+            `}
+            <input type="file" id="file-input" multiple style="display: none;" onchange="handleFileSelect(event)">
+        </div>
+        <div style="background: linear-gradient(135deg, #fef3c7, #fef9c3); padding: 20px; border-radius: 12px; border-left: 4px solid #f59e0b; margin-top: 24px;">
+            <p style="margin: 0; color: #92400e; font-weight: 600;">
+                <i class="fas fa-exclamation-triangle" style="margin-right: 8px;"></i>
+                Не забудьте оформить протокол и обновить дату последней калибровки.
+            </p>
+        </div>
+    `;
+
+    if (isEditMode) {
+        footer.innerHTML = `
+            <button class="btn-secondary" onclick="cancelEdit()">
+                <i class="fas fa-times"></i>
+                Отмена
+            </button>
+            <button class="btn-primary" onclick="saveInstruction()">
+                <i class="fas fa-save"></i>
+                Сохранить изменения
+            </button>
+        `;
+    } else {
+        footer.innerHTML = `
+            <button class="btn-secondary" onclick="closeInstructionModal()">
+                <i class="fas fa-times"></i>
+                Закрыть
+            </button>
+        `;
+    }
+}
+
+function toggleEditMode() {
+    editMode = !editMode;
+    const inst = instruments.find(i => i.id === currentInstrumentId);
+    if (!inst) return;
+
+    const instruction = inst.customInstruction || INSTRUCTIONS[inst.type] || INSTRUCTIONS.other;
+    const files = inst.files || [];
+
+    renderInstructionContent(inst, instruction, files, editMode);
+}
+
+function cancelEdit() {
+    editMode = false;
+    showInstruction(currentInstrumentId);
+}
+
+function saveInstruction() {
+    const inst = instruments.find(i => i.id === currentInstrumentId);
+    if (!inst) return;
+
+    const steps = [];
+    document.querySelectorAll('.instruction-step').forEach((stepEl, index) => {
+        const title = stepEl.querySelector('[data-field="title"]').textContent.trim();
+        const textField = stepEl.querySelector('[data-field="text"]');
+        const text = textField ? textField.value.trim() : stepEl.querySelector('p').textContent.trim();
+        
+        steps.push({ title, text });
+    });
+
+    inst.customInstruction = {
+        title: document.querySelector('#instruction-content h3').textContent,
+        steps: steps
+    };
+
+    saveInstruments();
+    showToast('Инструкция успешно сохранена!', 'info');
+    editMode = false;
+    showInstruction(currentInstrumentId);
+}
+
+function addNewStep() {
+    const inst = instruments.find(i => i.id === currentInstrumentId);
+    if (!inst) return;
+
+    const instruction = inst.customInstruction || INSTRUCTIONS[inst.type] || INSTRUCTIONS.other;
+    instruction.steps.push({
+        title: 'Новый шаг',
+        text: 'Описание шага'
+    });
+
+    if (!inst.customInstruction) {
+        inst.customInstruction = { ...instruction };
+    }
+
+    renderInstructionContent(inst, instruction, inst.files || [], true);
+}
+
+function deleteStep(index) {
+    if (!confirm('Удалить этот шаг?')) return;
+
+    const inst = instruments.find(i => i.id === currentInstrumentId);
+    if (!inst) return;
+
+    const instruction = inst.customInstruction || INSTRUCTIONS[inst.type] || INSTRUCTIONS.other;
+    instruction.steps.splice(index, 1);
+
+    if (!inst.customInstruction) {
+        inst.customInstruction = { ...instruction };
+    }
+
+    renderInstructionContent(inst, instruction, inst.files || [], true);
+}
+
+function openFileUpload() {
+    document.getElementById('file-input').click();
+}
+
+function handleFileSelect(event) {
+    const files = Array.from(event.target.files);
+    const inst = instruments.find(i => i.id === currentInstrumentId);
+    if (!inst) return;
+
+    if (!inst.files) {
+        inst.files = [];
+    }
+
+    files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            inst.files.push({
+                name: file.name,
+                size: file.size,
+                type: file.type,
+                data: e.target.result,
+                uploadedAt: new Date().toISOString()
+            });
+            
+            saveInstruments();
+            const instruction = inst.customInstruction || INSTRUCTIONS[inst.type] || INSTRUCTIONS.other;
+            renderInstructionContent(inst, instruction, inst.files, editMode);
+        };
+        reader.readAsDataURL(file);
+    });
+
+    event.target.value = '';
+}
+
+function deleteFile(index) {
+    if (!confirm('Удалить этот файл?')) return;
+
+    const inst = instruments.find(i => i.id === currentInstrumentId);
+    if (!inst) return;
+
+    inst.files.splice(index, 1);
+    saveInstruments();
+
+    const instruction = inst.customInstruction || INSTRUCTIONS[inst.type] || INSTRUCTIONS.other;
+    renderInstructionContent(inst, instruction, inst.files, editMode);
+    showToast('Файл удален', 'info');
+}
+
+function downloadFile(instrumentId, fileIndex) {
+    const inst = instruments.find(i => i.id === instrumentId);
+    if (!inst || !inst.files || !inst.files[fileIndex]) return;
+
+    const file = inst.files[fileIndex];
+    const link = document.createElement('a');
+    link.href = file.data;
+    link.download = file.name;
+    link.click();
+}
+
+function getFileIcon(filename) {
+    const ext = filename.split('.').pop().toLowerCase();
+    const icons = {
+        pdf: 'pdf',
+        doc: 'word',
+        docx: 'word',
+        xls: 'excel',
+        xlsx: 'excel',
+        jpg: 'image',
+        jpeg: 'image',
+        png: 'image',
+        gif: 'image',
+        zip: 'archive',
+        rar: 'archive'
+    };
+    return icons[ext] || 'alt';
+}
+
+function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' Б';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' КБ';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' МБ';
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return '—';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('ru-RU', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+// Закрыть модальное окно инструкции
+function closeInstructionModal() {
+    const modal = document.getElementById('instruction-modal');
+    if (modal) {
+        modal.classList.remove('active');
+    }
+}
+
+// Закрытие модальных окон по клику на фон
+document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('calibration-modal')) {
+        e.target.classList.remove('active');
+    }
+});
+

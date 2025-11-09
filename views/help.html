@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/dashboard.css">
-    <link rel="stylesheet" href="/css/help/help.css">
+    <link rel="stylesheet" href="/css/help/help.css?v=11">
     <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
 </head>
 <body>
@@ -44,7 +44,7 @@
 
         <!-- Вкладки с видами измерений -->
         <div class="measurement-tabs">
-            <button class="tab-btn active" data-tab="temperature">
+            <button class="tab-btn" data-tab="temperature">
                 <!-- Температура: простой термометр, единый цвет через currentColor -->
                 <svg class="main-icon-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                     <path d="M14 14V6a2 2 0 10-4 0v8a4 4 0 104 0z" fill="currentColor"/>
@@ -82,7 +82,7 @@
         </div>
 
         <!-- Контент вкладок: каждая вкладка теперь содержит под-вкладки -->
-        <div class="tab-content active" id="temperature">
+    <div class="tab-content" id="temperature">
             <div class="sub-tabs">
                 <button class="sub-tab-btn active" data-sub="temp-calculator-select">Выбор калькулятора</button>
                 <button class="sub-tab-btn" data-sub="temp-docs">Нормативная документация</button>
@@ -301,17 +301,16 @@
             </div>
         </div>
 
-        <div class="tab-content" id="flow">
+    <div class="tab-content active" id="flow">
             <div class="sub-tabs">
-                <button class="sub-tab-btn active" data-sub="flow-calculator-select">
+                <button class="sub-tab-btn" data-sub="flow-calculator-select">
                     <!-- Расходомер SVG -->
                     <svg class="icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 12h10" stroke="#2563eb" stroke-width="2" stroke-linecap="round"/><path d="M13 12l3-3v6l-3-3z" fill="#2563eb"/><path d="M20 6v12" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round"/></svg>
                     Выбор калькулятора
                 </button>
                 <button class="sub-tab-btn" data-sub="flow-docs">Нормативная документация</button>
-                <button class="sub-tab-btn" data-sub="flow-cal">Калибровка СИ</button>
             </div>
-            <div class="sub-tab-content active" id="flow-calculator-select">
+            <div class="sub-tab-content" id="flow-calculator-select">
                 <div class="calculator-selector">
                     <h4>Выберите тип калькулятора:</h4>
                     <div class="selector-buttons">
@@ -466,106 +465,6 @@
                         </div>
                         <a href="#" class="doc-download"><i class="fas fa-download"></i></a>
                     </div>
-                </div>
-            </div>
-            <div class="sub-tab-content" id="flow-cal">
-                <div class="calibration-container">
-                    <div class="calibration-header">
-                        <h3><i class="fas fa-wrench"></i> Перечень средств измерений для калибровки</h3>
-                        <button class="btn-add-si" onclick="openAddSIModal()">
-                            <i class="fas fa-plus"></i>
-                            Добавить СИ
-                        </button>
-                    </div>
-                    
-                    <div class="si-list" id="si-list">
-                        <!-- Список будет заполняться динамически -->
-                        <div class="si-empty-state">
-                            <i class="fas fa-inbox"></i>
-                            <p>Перечень СИ пуст. Добавьте первое средство измерения.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Модальное окно добавления СИ -->
-        <div class="modal" id="add-si-modal">
-            <div class="modal-content modal-lg">
-                <div class="modal-header">
-                    <h3><i class="fas fa-plus-circle"></i> Добавление средства измерения</h3>
-                    <button class="modal-close" onclick="closeAddSIModal()">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <form id="add-si-form">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Тип СИ:</label>
-                                <select id="si-type" required>
-                                    <option value="">Выберите тип</option>
-                                    <option value="flow">Расходомер</option>
-                                    <option value="temperature">Термометр</option>
-                                    <option value="pressure">Манометр</option>
-                                    <option value="ph">pH-метр</option>
-                                    <option value="other">Другое</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Наименование:</label>
-                                <input type="text" id="si-name" placeholder="Например: Расходомер электромагнитный" required>
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Заводской номер:</label>
-                                <input type="text" id="si-serial" placeholder="№12345" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Диапазон измерений:</label>
-                                <input type="text" id="si-range" placeholder="0...100 м³/ч" required>
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Класс точности / Погрешность:</label>
-                                <input type="text" id="si-accuracy" placeholder="±1%" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Дата последней калибровки:</label>
-                                <input type="date" id="si-last-calibration">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Межкалибровочный интервал (месяцев):</label>
-                            <input type="number" id="si-interval" placeholder="12" min="1">
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn-secondary" onclick="closeAddSIModal()">Отмена</button>
-                    <button class="btn-primary" onclick="addSI()">Добавить</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Модальное окно инструкции калибровки -->
-        <div class="modal" id="calibration-instruction-modal">
-            <div class="modal-content modal-lg">
-                <div class="modal-header">
-                    <h3><i class="fas fa-book"></i> Инструкция по калибровке</h3>
-                    <button class="modal-close" onclick="closeCalibrationModal()">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <div id="calibration-instruction-content">
-                        <!-- Контент инструкции будет загружаться динамически -->
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn-primary" onclick="closeCalibrationModal()">Закрыть</button>
                 </div>
             </div>
         </div>
