@@ -1,10 +1,11 @@
 // ===================================================================
-// Файл: services/geographyStatsService.js (ФИНАЛЬНАЯ ИСПРАВЛЕННАЯ ВЕРСИЯ)
+// Файл: services/geographyStatsService.js (СТАРАЯ СХЕМА: employeeId)
 // ===================================================================
 const { knex } = require('../config/database');
 
 exports.calculateGeographyStats = async (year, employeeId) => {
-    const yearParam = [year];
+    // Приводим год к строке для корректной работы с SQLite
+    const yearParam = [String(year)];
 
     // --- 1. Запрос для получения 50 самых популярных городов ---
     let topCitiesQuery = knex('trips as t')
@@ -21,16 +22,11 @@ exports.calculateGeographyStats = async (year, employeeId) => {
         .count('t.id as totalTrips')
         .first();
 
-    // --- ЕСЛИ ПЕРЕДАН ID СОТРУДНИКА, МОДИФИЦИРУЕМ ЗАПРОСЫ ---
+    // --- ЕСЛИ ПЕРЕДАН ID СОТРУДНИКА, МОДИФИЦИРУЕМ ЗАПРОСЫ (СТАРАЯ СХЕМА: employeeId) ---
     if (employeeId) {
-        // Добавляем join с trip_participants для фильтрации по сотруднику
-        topCitiesQuery = topCitiesQuery
-            .join('trip_participants as tp', 't.id', 'tp.tripId')
-            .where('tp.employeeId', employeeId);
-        
-        totalTripsQuery = totalTripsQuery
-            .join('trip_participants as tp', 't.id', 'tp.tripId')
-            .where('tp.employeeId', employeeId);
+        // Фильтруем по employeeId в таблице trips
+        topCitiesQuery = topCitiesQuery.where('t.employeeId', employeeId);
+        totalTripsQuery = totalTripsQuery.where('t.employeeId', employeeId);
     }
     
     // Выполняем оба запроса параллельно

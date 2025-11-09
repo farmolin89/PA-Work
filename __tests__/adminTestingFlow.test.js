@@ -1,17 +1,17 @@
 const path = require('path');
 const knex = require('knex');
 
-jest.mock('../../event-emitter', () => ({
+jest.mock('../event-emitter', () => ({
   sendEvent: jest.fn(),
   initializeSSE: jest.fn(),
 }));
 
-const { sendEvent } = require('../../event-emitter');
-const createTestService = require('../../services/testService');
-const createTestTakingService = require('../../services/testTakingService');
-const createReviewService = require('../../services/reviewService');
+const { sendEvent } = require('../event-emitter');
+const createTestService = require('../services/testService');
+const createTestTakingService = require('../services/testTakingService');
+const createReviewService = require('../services/reviewService');
 
-const MIGRATIONS_DIR = path.resolve(__dirname, '..', '..', 'migrations');
+const MIGRATIONS_DIR = path.resolve(__dirname, '..', 'migrations');
 
 /**
  * Создает UUID-подобную строку с инкрементом для удобства чтения тестов.

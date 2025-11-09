@@ -126,9 +126,10 @@ export function renderStatsAndProgress(stats, levelInfo) {
     document.getElementById('level-card-number').textContent = levelInfo.level;
     document.getElementById('level-card-name').textContent = levelInfo.name;
 
-    const progressPercent = (levelInfo.max > 0) ? Math.min(100, (levelInfo.progress / levelInfo.max) * 100) : 0;
+    // Используем totalDays для отображения общего прогресса
+    const progressPercent = (levelInfo.max > 0) ? Math.min(100, (levelInfo.totalDays / levelInfo.max) * 100) : 0;
     
-    document.getElementById('level-progress-text-new').innerHTML = `<i class="fas fa-calendar-day"></i> ${levelInfo.progress} из ${levelInfo.max} дней`;
+    document.getElementById('level-progress-text-new').innerHTML = `<i class="fas fa-calendar-day"></i> ${levelInfo.totalDays} из ${levelInfo.max} дней`;
     document.getElementById('level-progress-fill-new').style.width = `${progressPercent}%`;
 }
 

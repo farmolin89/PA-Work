@@ -1,7 +1,19 @@
 // ===================================================================
-// Файл: services/tripService.js (ИСПРАВЛЕННАЯ ВЕРСИЯ ПОД АКТУАЛЬНУЮ СХЕМУ)
+// Файл: services/tripService.js (СТАРАЯ СХЕМА: employeeId + groupId)
 // ===================================================================
 const { knex } = require('../config/database');
+
+/**
+ * Генерирует UUID v4.
+ * @returns {string} - UUID строка.
+ */
+function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
 
 /**
  * Проверяет, занят ли кто-либо из указанных сотрудников в заданный период времени.
@@ -14,11 +26,10 @@ const { knex } = require('../config/database');
 const findConflictingEmployee = async (participants, startDate, endDate, options = {}) => {
     const { excludeTripId = null, excludeVacationId = null, db = knex } = options;
 
-    // --- ИСПРАВЛЕНО: Запрос теперь ищет конфликты в правильных таблицах ---
+    // Старая схема: employeeId в таблице trips
     const tripQuery = db('trips as t')
-        .join('trip_participants as tp', 't.id', 'tp.tripId') // Соединяем с участниками
-        .join('employees as e', 'tp.employeeId', 'e.id')     // Соединяем с сотрудниками
-        .whereIn('tp.employeeId', participants)
+        .join('employees as e', 't.employeeId', 'e.id')
+        .whereIn('t.employeeId', participants)
         .where(function() {
             this.where('t.startDate', '<=', endDate)
                 .andWhere('t.endDate', '>=', startDate);
@@ -65,12 +76,9 @@ const findConflictingEmployee = async (participants, startDate, endDate, options
 const getAll = async (filters = {}) => {
     const { year } = filters;
     
-    // --- ИСПРАВЛЕНО: Запрос получает участников из таблицы 'trip_participants' ---
+    // Старая схема: получаем все командировки с employeeId и groupId
     const query = knex('trips as t')
-        .select(
-            't.*',
-            knex.raw(`(SELECT GROUP_CONCAT(tp.employeeId) FROM trip_participants AS tp WHERE tp.tripId = t.id) as participants_str`)
-        )
+        .select('t.*')
         .orderBy('t.startDate', 'desc');
 
     if (year && /^\d{4}$/.test(year)) {
@@ -78,13 +86,32 @@ const getAll = async (filters = {}) => {
     }
 
     const tripsRaw = await query;
-    return tripsRaw.map(trip => {
-        const { participants_str, ...rest } = trip;
-        return {
-            ...rest,
-            participants: participants_str ? participants_str.split(',').map(Number) : []
-        };
+    
+    // Группируем по groupId и создаем массив participants
+    const tripsByGroup = {};
+    const singleTrips = [];
+    
+    tripsRaw.forEach(trip => {
+        if (trip.groupId) {
+            if (!tripsByGroup[trip.groupId]) {
+                tripsByGroup[trip.groupId] = {
+                    ...trip,
+                    participants: []
+                };
+            }
+            if (trip.employeeId) {
+                tripsByGroup[trip.groupId].participants.push(trip.employeeId);
+            }
+        } else {
+            singleTrips.push({
+                ...trip,
+                participants: trip.employeeId ? [trip.employeeId] : []
+            });
+        }
     });
+    
+    const groupedTrips = Object.values(tripsByGroup);
+    return [...groupedTrips, ...singleTrips];
 };
 
 /**
@@ -94,31 +121,32 @@ const getAll = async (filters = {}) => {
  */
 const create = async (tripData) => {
     const { participants, ...tripDetails } = tripData;
-    let newTripId;
 
-    await knex.transaction(async (trx) => {
-        // --- ИСПРАВЛЕНО: Логика создания ---
-        // 1. Вставляем ОДНУ запись в таблицу 'trips'
-        const [trip] = await trx('trips').insert(tripDetails).returning('id');
-        newTripId = trip.id;
+    if (!participants || participants.length === 0) {
+        // Нет участников - создаем одну запись без employeeId
+        const [trip] = await knex('trips').insert({ ...tripDetails, employeeId: null, groupId: null }).returning('*');
+        return { ...trip, participants: [] };
+    }
 
-        if (participants && participants.length > 0) {
-            // 2. Готовим записи для связующей таблицы 'trip_participants'
-            const participantsToInsert = participants.map(employeeId => ({
-                tripId: newTripId,
-                employeeId: employeeId
-            }));
-            // 3. Вставляем всех участников одной командой
-            await trx('trip_participants').insert(participantsToInsert);
-        }
-    });
+    if (participants.length === 1) {
+        // Один участник - создаем одну запись с employeeId
+        const [trip] = await knex('trips').insert({ ...tripDetails, employeeId: participants[0], groupId: null }).returning('*');
+        return { ...trip, participants: [participants[0]] };
+    }
 
-    // Возвращаем полную, только что созданную запись
-    const newTrip = await knex('trips').where({ id: newTripId }).first();
-    return {
-        ...newTrip,
-        participants: participants || []
-    };
+    // Несколько участников - создаем запись для каждого с общим groupId
+    const groupId = generateUUID();
+    const tripsToInsert = participants.map(employeeId => ({
+        ...tripDetails,
+        employeeId,
+        groupId
+    }));
+
+    await knex('trips').insert(tripsToInsert);
+    
+    // Возвращаем первую запись группы с массивом участников
+    const firstTrip = await knex('trips').where({ groupId }).first();
+    return { ...firstTrip, participants };
 };
 
 /**
@@ -130,32 +158,39 @@ const create = async (tripData) => {
 const update = async (tripId, tripData) => {
     const { participants, ...tripDetails } = tripData;
 
-    await knex.transaction(async (trx) => {
-        // --- ИСПРАВЛЕНО: Логика обновления ---
-        // 1. Обновляем основную информацию в таблице 'trips'
-        await trx('trips').where({ id: tripId }).update(tripDetails);
+    // Проверяем существование командировки
+    const existingTrip = await knex('trips').where({ id: tripId }).first();
+    if (!existingTrip) return null;
 
-        // 2. Полностью заменяем список участников
-        // Сначала удаляем всех старых участников этой командировки
-        await trx('trip_participants').where({ tripId }).del();
+    // Если у командировки был groupId, удаляем все записи группы
+    if (existingTrip.groupId) {
+        await knex('trips').where({ groupId: existingTrip.groupId }).del();
+    } else {
+        await knex('trips').where({ id: tripId }).del();
+    }
 
-        // Затем добавляем новый список участников (если он есть)
-        if (participants && participants.length > 0) {
-            const participantsToInsert = participants.map(employeeId => ({
-                tripId: tripId,
-                employeeId: employeeId
-            }));
-            await trx('trip_participants').insert(participantsToInsert);
-        }
-    });
-    
-    const updatedTrip = await knex('trips').where({ id: tripId }).first();
-    if (!updatedTrip) return null;
+    // Создаем заново с новыми участниками
+    if (!participants || participants.length === 0) {
+        const [trip] = await knex('trips').insert({ ...tripDetails, employeeId: null, groupId: null }).returning('*');
+        return { ...trip, participants: [] };
+    }
 
-    return {
-        ...updatedTrip,
-        participants: participants || []
-    };
+    if (participants.length === 1) {
+        const [trip] = await knex('trips').insert({ ...tripDetails, employeeId: participants[0], groupId: null }).returning('*');
+        return { ...trip, participants: [participants[0]] };
+    }
+
+    // Несколько участников
+    const groupId = generateUUID();
+    const tripsToInsert = participants.map(employeeId => ({
+        ...tripDetails,
+        employeeId,
+        groupId
+    }));
+
+    await knex('trips').insert(tripsToInsert);
+    const firstTrip = await knex('trips').where({ groupId }).first();
+    return { ...firstTrip, participants };
 };
 
 /**
@@ -163,10 +198,18 @@ const update = async (tripId, tripData) => {
  * @param {number} id - ID командировки.
  * @returns {Promise<number>} - Количество удаленных строк.
  */
-const deleteById = (id) => {
-    // Эта функция работает правильно благодаря 'ON DELETE CASCADE' в вашей миграции.
-    // При удалении командировки из 'trips', база данных сама удалит связанные записи из 'trip_participants'.
-    return knex('trips').where({ id }).del();
+const deleteById = async (id) => {
+    // Проверяем, есть ли groupId у командировки
+    const trip = await knex('trips').where({ id }).first();
+    if (!trip) return 0;
+
+    if (trip.groupId) {
+        // Удаляем все записи с таким же groupId (групповая командировка)
+        return knex('trips').where({ groupId: trip.groupId }).del();
+    } else {
+        // Удаляем только эту запись (одиночная командировка)
+        return knex('trips').where({ id }).del();
+    }
 };
 
 module.exports = {

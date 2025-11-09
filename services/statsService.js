@@ -1,5 +1,5 @@
 // ===================================================================
-// File: services/statsService.js (ФИНАЛЬНАЯ ИСПРАВЛЕННАЯ ВЕРСИЯ)
+// File: services/statsService.js (СТАРАЯ СХЕМА: employeeId + groupId)
 // ===================================================================
 const { knex } = require('../config/database');
 
@@ -12,35 +12,38 @@ const formatName = (emp) => {
 exports.calculateGlobalStats = async (year) => {
     // Получаем сегодняшнюю дату для корректного расчета дней
     const today = new Date().toISOString().split('T')[0];
+    
+    // Приводим год к строке для корректной работы с SQLite
+    const yearStr = String(year);
 
     // --- БЛОК 1: ОСНОВНЫЕ ПОКАЗАТЕЛИ ---
     const summaryPromises = {
-        totalTrips: knex('trips').whereRaw("strftime('%Y', startDate) = ?", [year]).count('id as count').first(),
-        totalCities: knex('trips').whereRaw("strftime('%Y', startDate) = ?", [year]).countDistinct('destination as count').first(),
+        totalTrips: knex('trips').whereRaw("strftime('%Y', startDate) = ?", [yearStr]).count('id as count').first(),
+        totalCities: knex('trips').whereRaw("strftime('%Y', startDate) = ?", [yearStr]).countDistinct('destination as count').first(),
         
-        // Считает уникальных сотрудников за весь год через trip_participants
-        uniqueEmployeesForYear: knex('trip_participants as tp')
-            .join('trips as t', 'tp.tripId', 't.id')
-            .whereRaw("strftime('%Y', t.startDate) = ?", [year])
-            .countDistinct('tp.employeeId as count')
+        // Считает уникальных сотрудников за весь год (СТАРАЯ СХЕМА: employeeId)
+        uniqueEmployeesForYear: knex('trips')
+            .whereRaw("strftime('%Y', startDate) = ?", [yearStr])
+            .whereNotNull('employeeId')
+            .countDistinct('employeeId as count')
             .first(),
         
         // Считает уникальных сотрудников, которые в командировке ПРЯМО СЕЙЧАС
-        activeEmployeesNow: knex('trip_participants as tp')
-            .join('trips as t', 'tp.tripId', 't.id')
-            .where('t.startDate', '<=', today)
-            .andWhere('t.endDate', '>=', today)
-            .countDistinct('tp.employeeId as count')
+        activeEmployeesNow: knex('trips')
+            .where('startDate', '<=', today)
+            .andWhere('endDate', '>=', today)
+            .whereNotNull('employeeId')
+            .countDistinct('employeeId as count')
             .first(),
 
-        avgDuration: knex('trips').whereRaw("strftime('%Y', startDate) = ?", [year]).avg({ avg: knex.raw('JULIANDAY(endDate) - JULIANDAY(startDate) + 1') }).first(),
+        avgDuration: knex('trips').whereRaw("strftime('%Y', startDate) = ?", [yearStr]).avg({ avg: knex.raw('JULIANDAY(endDate) - JULIANDAY(startDate) + 1') }).first(),
     };
 
-    // --- БЛОК 2: РЕЙТИНГ (С ИСПРАВЛЕННЫМ ПОДСЧЕТОМ ДНЕЙ) ---
-    const rankingQuery = knex('employees as e')
-        .join('trip_participants as tp', 'e.id', 'tp.employeeId')
-        .join('trips as t', 'tp.tripId', 't.id')
-        .whereRaw("strftime('%Y', t.startDate) = ?", [year])
+    // --- БЛОК 2: РЕЙТИНГ (СТАРАЯ СХЕМА: employeeId) ---
+    const rankingQuery = knex('trips as t')
+        .join('employees as e', 't.employeeId', 'e.id')
+        .whereRaw("strftime('%Y', t.startDate) = ?", [yearStr])
+        .whereNotNull('t.employeeId')
         .groupBy('e.id')
         .select('e.id', 'e.lastName', 'e.firstName', 'e.patronymic')
         .count('t.id as totalTrips')
@@ -56,11 +59,11 @@ exports.calculateGlobalStats = async (year) => {
         .orderBy('totalDays', 'desc')
         .limit(10);
 
-    // --- БЛОК 3: РЕКОРДЫ ---
+    // --- БЛОК 3: РЕКОРДЫ (СТАРАЯ СХЕМА: employeeId) ---
     
     const buildDurationRecordQuery = async (aggFunction, valueAlias) => {
         const subqueryResult = await knex('trips')
-            .whereRaw("strftime('%Y', startDate) = ?", [year])
+            .whereRaw("strftime('%Y', startDate) = ?", [yearStr])
             .select(knex.raw(`${aggFunction}(JULIANDAY(endDate) - JULIANDAY(startDate) + 1) as val`))
             .first();
 
@@ -68,9 +71,9 @@ exports.calculateGlobalStats = async (year) => {
         if (!targetValue) return [];
 
         return knex('trips as t')
-            .join('trip_participants as tp', 't.id', 'tp.tripId')
-            .join('employees as e', 'tp.employeeId', 'e.id')
-            .whereRaw("strftime('%Y', t.startDate) = ?", [year])
+            .join('employees as e', 't.employeeId', 'e.id')
+            .whereRaw("strftime('%Y', t.startDate) = ?", [yearStr])
+            .whereNotNull('t.employeeId')
             .select('t.destination', 'e.lastName', 'e.firstName', 'e.patronymic')
             .select({ [valueAlias]: knex.raw('JULIANDAY(t.endDate) - JULIANDAY(t.startDate) + 1') })
             .groupBy('t.id', 'e.id')
@@ -79,8 +82,8 @@ exports.calculateGlobalStats = async (year) => {
 
     const buildCountRecordQuery = async (countColumn, valueAlias, groupByFields) => {
         const subqueryResult = await knex('trips as t')
-            .join('trip_participants as tp', 't.id', 'tp.tripId')
-            .whereRaw("strftime('%Y', t.startDate) = ?", [year])
+            .whereRaw("strftime('%Y', t.startDate) = ?", [yearStr])
+            .whereNotNull('employeeId')
             .groupBy(...groupByFields)
             .countDistinct({ c: countColumn })
             .orderBy('c', 'desc')
@@ -90,9 +93,9 @@ exports.calculateGlobalStats = async (year) => {
         if (!targetValue) return [];
 
         return knex('trips as t')
-            .join('trip_participants as tp', 't.id', 'tp.tripId')
-            .join('employees as e', 'tp.employeeId', 'e.id')
-            .whereRaw("strftime('%Y', t.startDate) = ?", [year])
+            .join('employees as e', 't.employeeId', 'e.id')
+            .whereRaw("strftime('%Y', t.startDate) = ?", [yearStr])
+            .whereNotNull('t.employeeId')
             .groupBy(...groupByFields)
             .select('e.lastName', 'e.firstName', 'e.patronymic')
             .countDistinct({ [valueAlias]: countColumn })
@@ -102,43 +105,43 @@ exports.calculateGlobalStats = async (year) => {
     const recordPromises = {
         longestTrip: buildDurationRecordQuery('max', 'duration'),
         shortestTrip: buildDurationRecordQuery('min', 'duration'),
-        mostTrips: buildCountRecordQuery('t.id', 'tripCount', ['tp.employeeId']),
-        mostCities: buildCountRecordQuery('t.destination', 'cityCount', ['tp.employeeId']),
+        mostTrips: buildCountRecordQuery('t.id', 'tripCount', ['t.employeeId']),
+        mostCities: buildCountRecordQuery('t.destination', 'cityCount', ['t.employeeId']),
         monthlySprinter: (async () => {
-            const subqueryResult = await knex('trips as t_inner')
-                .join('trip_participants as tp_inner', 't_inner.id', 'tp_inner.tripId')
-                .whereRaw("strftime('%Y', t_inner.startDate) = ?", [year])
-                .groupBy('tp_inner.employeeId', knex.raw("strftime('%Y-%m', t_inner.startDate)"))
-                .count('t_inner.id as c')
+            const subqueryResult = await knex('trips as t')
+                .whereRaw("strftime('%Y', t.startDate) = ?", [yearStr])
+                .whereNotNull('employeeId')
+                .groupBy('employeeId', knex.raw("strftime('%Y-%m', t.startDate)"))
+                .count('t.id as c')
                 .orderBy('c', 'desc')
                 .first();
             const targetValue = subqueryResult?.c;
             if (!targetValue) return [];
             return knex('trips as t')
-                .join('trip_participants as tp', 't.id', 'tp.tripId')
-                .join('employees as e', 'tp.employeeId', 'e.id')
-                .whereRaw("strftime('%Y', t.startDate) = ?", [year])
-                .groupBy('tp.employeeId', knex.raw("strftime('%Y-%m', t.startDate)"))
+                .join('employees as e', 't.employeeId', 'e.id')
+                .whereRaw("strftime('%Y', t.startDate) = ?", [yearStr])
+                .whereNotNull('t.employeeId')
+                .groupBy('t.employeeId', knex.raw("strftime('%Y-%m', t.startDate)"))
                 .select('e.lastName', 'e.firstName', 'e.patronymic', knex.raw("strftime('%m', t.startDate) as month"))
                 .count('t.id as monthlyCount')
                 .having('monthlyCount', '=', targetValue);
         })(),
         keyPartner: (async () => {
-            const subqueryResult = await knex('trips as t_inner')
-                .join('trip_participants as tp_inner', 't_inner.id', 'tp_inner.tripId')
-                .whereRaw("strftime('%Y', t_inner.startDate) = ?", [year])
-                .groupBy('tp_inner.employeeId', 't_inner.organizationId')
-                .count('t_inner.id as c')
+            const subqueryResult = await knex('trips as t')
+                .whereRaw("strftime('%Y', t.startDate) = ?", [yearStr])
+                .whereNotNull('employeeId')
+                .groupBy('employeeId', 'organizationId')
+                .count('t.id as c')
                 .orderBy('c', 'desc')
                 .first();
             const targetValue = subqueryResult?.c;
             if (!targetValue) return [];
             return knex('trips as t')
-                .join('trip_participants as tp', 't.id', 'tp.tripId')
-                .join('employees as e', 'tp.employeeId', 'e.id')
+                .join('employees as e', 't.employeeId', 'e.id')
                 .join('organizations as o', 't.organizationId', 'o.id')
-                .whereRaw("strftime('%Y', t.startDate) = ?", [year])
-                .groupBy('tp.employeeId', 't.organizationId')
+                .whereRaw("strftime('%Y', t.startDate) = ?", [yearStr])
+                .whereNotNull('t.employeeId')
+                .groupBy('t.employeeId', 't.organizationId')
                 .select('e.lastName', 'e.firstName', 'e.patronymic', 'o.name as organizationName')
                 .count('t.id as orgTripCount')
                 .having('orgTripCount', '=', targetValue);
@@ -146,22 +149,22 @@ exports.calculateGlobalStats = async (year) => {
         transportChampions: (async () => {
             const results = {};
             for (const transport of ['plane', 'train', 'car']) {
-                const subqueryResult = await knex('trips as t_inner')
-                    .join('trip_participants as tp_inner', 't_inner.id', 'tp_inner.tripId')
+                const subqueryResult = await knex('trips as t')
                     .where({ transport })
-                    .whereRaw("strftime('%Y', t_inner.startDate) = ?", [year])
-                    .groupBy('tp_inner.employeeId')
-                    .count('t_inner.id as c')
+                    .whereRaw("strftime('%Y', t.startDate) = ?", [yearStr])
+                    .whereNotNull('employeeId')
+                    .groupBy('employeeId')
+                    .count('t.id as c')
                     .orderBy('c', 'desc')
                     .first();
                 const targetValue = subqueryResult?.c;
                 if (targetValue) {
                     results[transport] = await knex('trips as t')
-                        .join('trip_participants as tp', 't.id', 'tp.tripId')
-                        .join('employees as e', 'tp.employeeId', 'e.id')
+                        .join('employees as e', 't.employeeId', 'e.id')
                         .where({ transport })
-                        .whereRaw("strftime('%Y', t.startDate) = ?", [year])
-                        .groupBy('tp.employeeId')
+                        .whereRaw("strftime('%Y', t.startDate) = ?", [yearStr])
+                        .whereNotNull('t.employeeId')
+                        .groupBy('t.employeeId')
                         .select('e.lastName', 'e.firstName', 'e.patronymic')
                         .count('t.id as count')
                         .having('count', '=', targetValue);
@@ -177,8 +180,8 @@ exports.calculateGlobalStats = async (year) => {
     const [summaryResults, ranking, transportRows, monthlyRows] = await Promise.all([
         Promise.all(Object.values(summaryPromises)),
         rankingQuery,
-        knex('trips').select('transport').count('id as count').whereRaw("strftime('%Y', startDate) = ?", [year]).whereNotNull('transport').groupBy('transport'),
-        knex('trips').select(knex.raw("strftime('%m', startDate) as month")).count('id as count').whereRaw("strftime('%Y', startDate) = ?", [year]).groupBy('month')
+        knex('trips').select('transport').count('id as count').whereRaw("strftime('%Y', startDate) = ?", [yearStr]).whereNotNull('transport').groupBy('transport'),
+        knex('trips').select(knex.raw("strftime('%m', startDate) as month")).count('id as count').whereRaw("strftime('%Y', startDate) = ?", [yearStr]).groupBy('month')
     ]);
 
     const recordResults = await Promise.all(Object.values(recordPromises));

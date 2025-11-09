@@ -50,7 +50,6 @@ export const mutations = {
         state.organizations = organizations.sort((a, b) => a.name.localeCompare(b.name));
     },
     setTrips(trips) {
-        // ИЗМЕНЕНИЕ: Преобразование больше не нужно, API возвращает чистый массив.
         state.trips = trips;
         this.invalidateAllCaches();
     },

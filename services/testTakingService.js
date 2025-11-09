@@ -137,7 +137,18 @@ module.exports = (db) => {
         });
         
         const eventName = hasPendingReview ? 'new-pending-result' : 'new-result';
-        const eventData = { testId, testName: test.name, fio, id: newResultId };
+        const eventData = { 
+            testId, 
+            testName: test.name, 
+            fio, 
+            id: newResultId,
+            status: hasPendingReview ? 'pending_review' : 'completed',
+            score,
+            total,
+            percentage,
+            passed,
+            date: resultData.date
+        };
         sendEvent(eventData, eventName);
 
         if (hasPendingReview) {

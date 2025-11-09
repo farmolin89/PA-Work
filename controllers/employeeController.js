@@ -25,9 +25,11 @@ module.exports = (employeeService) => ({
      */
     createEmployee: async (req, res, next) => {
         try {
-            // Просто пытаемся создать сотрудника.
-            // Если ФИО уже существует, база данных вернет ошибку, которую мы поймаем в catch.
-            const employeeData = { ...req.body, patronymic: req.body.patronymic || null };
+            // Нормализуем patronymic - пустая строка остается пустой строкой
+            const employeeData = { 
+                ...req.body, 
+                patronymic: req.body.patronymic === undefined ? null : req.body.patronymic 
+            };
             const newEmployee = await employeeService.create(employeeData);
             res.status(201).json(newEmployee);
         } catch (err) {
@@ -47,9 +49,12 @@ module.exports = (employeeService) => ({
     updateEmployee: async (req, res, next) => {
         const { id } = req.params;
         try {
-            // Просто пытаемся обновить сотрудника.
-            // Если новое ФИО конфликтует с другой записью, база данных вернет ошибку.
-            const employeeData = { ...req.body, patronymic: req.body.patronymic || null };
+            // Нормализуем patronymic - пустая строка остается пустой строкой
+            // чтобы UNIQUE constraint работал корректно (NULL != NULL в SQLite)
+            const employeeData = { 
+                ...req.body, 
+                patronymic: req.body.patronymic === undefined ? null : req.body.patronymic 
+            };
             const updatedEmployee = await employeeService.update(id, employeeData);
             
             if (!updatedEmployee) {

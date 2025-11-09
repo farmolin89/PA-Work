@@ -14,8 +14,6 @@ export const utils = {
      */
     getEmployeeTrips: function(employeeId) {
         if (!state._employeeTripsCache.has(employeeId)) {
-            // ИСПРАВЛЕНО: Логика адаптирована под новую структуру данных.
-            // Теперь мы фильтруем по прямому совпадению `employeeId`.
             const employeeTrips = state.trips.filter(trip => trip.employeeId === employeeId);
             state._employeeTripsCache.set(employeeId, employeeTrips);
         }

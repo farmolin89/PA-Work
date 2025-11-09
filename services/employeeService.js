@@ -12,7 +12,7 @@ const CACHE_DURATION_MS = 10 * 60 * 1000;
 const getRegion = (destination) => REGIONS[destination.toLowerCase().split(',')[0].trim()] || 'Другой';
 const getPluralizedUnit = (value, unitSingular, unitPlural24, unitPlural50) => { const v = Math.floor(value); const lastDigit = v % 10; const lastTwoDigits = v % 100; if (lastTwoDigits >= 11 && lastTwoDigits <= 19) return unitPlural50; if (lastDigit === 1) return unitSingular; if (lastDigit >= 2 && lastDigit <= 4) return unitPlural24; return unitPlural50; };
 const getTotalDays = (trips) => { const now = new Date(); const msInDay = 1000 * 60 * 60 * 24; return trips.reduce((sum, trip) => { const start = new Date(trip.startDate); const end = new Date(trip.endDate); const utcStart = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate()); const utcEnd = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate()); const utcNow = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()); if (utcEnd < utcNow) return sum + Math.floor((utcEnd - utcStart) / msInDay) + 1; if (utcStart <= utcNow && utcEnd >= utcNow) return sum + Math.floor((utcNow - utcStart) / msInDay) + 1; return sum; }, 0); };
-const calculateLevel = (totalDays) => { if (typeof totalDays !== 'number' || isNaN(totalDays) || totalDays < 0) { totalDays = 0; } const levels = [ { min: 0, max: 44, name: 'Стажер полевых измерений' }, { min: 45, max: 88, name: 'Специалист выездной поверки' }, { min: 89, max: 132, name: 'Опытный полевик' }, { min: 133, max: 176, name: 'Мастер полевой поверки' }, { min: 177, max: Infinity, name: 'Ветеран командировок' } ]; for (let i = 0; i < levels.length; i++) { if (totalDays >= levels[i].min && totalDays <= levels[i].max) { const isMaxLevel = i === levels.length - 1; const progress = totalDays - levels[i].min + (levels[i].min > 0 ? 1 : totalDays > 0 ? 1: 0); const max = isMaxLevel ? 9999 : levels[i].max - levels[i].min + 1; return { level: i + 1, name: levels[i].name, progress, max, totalDays }; } } return { level: 1, name: 'Стажер полевых измерений', progress: 0, max: 44, totalDays: 0 }; };
+const calculateLevel = (totalDays) => { if (typeof totalDays !== 'number' || isNaN(totalDays) || totalDays < 0) { totalDays = 0; } const levels = [ { min: 0, max: 44, name: 'Стажер полевых измерений' }, { min: 45, max: 88, name: 'Специалист выездной поверки' }, { min: 89, max: 132, name: 'Опытный полевик' }, { min: 133, max: 176, name: 'Мастер полевой поверки' }, { min: 177, max: Infinity, name: 'Ветеран командировок' } ]; for (let i = 0; i < levels.length; i++) { if (totalDays >= levels[i].min && totalDays <= levels[i].max) { const isMaxLevel = i === levels.length - 1; const progress = totalDays - levels[i].min + (levels[i].min > 0 ? 1 : totalDays > 0 ? 1: 0); const max = isMaxLevel ? 365 : levels[i].max - levels[i].min + 1; return { level: i + 1, name: levels[i].name, progress, max, totalDays }; } } return { level: 1, name: 'Стажер полевых измерений', progress: 0, max: 44, totalDays: 0 }; };
 const calculateTenure = (hireDateStr) => { if (!hireDateStr) return { value: 'Н/Д', unit: '' }; const diffDays = Math.ceil((new Date() - new Date(hireDateStr)) / (1000 * 60 * 60 * 24)); if (diffDays >= 365) { const years = (diffDays / 365.25); return { value: years.toFixed(1), unit: getPluralizedUnit(years, 'год', 'года', 'лет') }; } if (diffDays >= 30) { const months = Math.floor(diffDays / 30.44); return { value: months, unit: getPluralizedUnit(months, 'месяц', 'месяца', 'месяцев') }; } return { value: diffDays, unit: getPluralizedUnit(diffDays, 'день', 'дня', 'дней') }; };
 
 // --- Базовые CRUD-операции ---
@@ -169,26 +169,15 @@ const getFullEmployeeProfile = async (employeeId) => {
     const employee = await findById(employeeId);
     if (!employee) return null;
     
-    // Получаем все командировки с участниками через trip_participants
-    const allTrips = await knex('trips as t')
-        .select('t.*', knex.raw(`(SELECT GROUP_CONCAT(tp.employeeId) FROM trip_participants AS tp WHERE tp.tripId = t.id) as participants_str`));
-    
-    const allTripsProcessed = allTrips.map(trip => ({
-        ...trip,
-        participants: trip.participants_str ? trip.participants_str.split(',').map(Number) : []
-    }));
-    
-    // Фильтруем командировки для текущего сотрудника
-    const employeeTrips = allTripsProcessed.filter(trip => 
-        trip.participants.includes(employeeId)
-    );
+    // Получаем все командировки для текущего сотрудника (старая схема с employeeId)
+    const employeeTrips = await knex('trips').where({ employeeId });
     
     // Рассчитываем ранг сотрудника
     const allEmployees = await knex('employees').select('id');
-    const employeeScores = allEmployees.map(emp => {
-        const empTrips = allTripsProcessed.filter(trip => trip.participants.includes(emp.id));
+    const employeeScores = await Promise.all(allEmployees.map(async emp => {
+        const empTrips = await knex('trips').where({ employeeId: emp.id });
         return { id: emp.id, totalDays: getTotalDays(empTrips) };
-    });
+    }));
     employeeScores.sort((a, b) => b.totalDays - a.totalDays);
     const rank = employeeScores.findIndex(score => score.id === employeeId) + 1;
     
@@ -205,7 +194,8 @@ const getFullEmployeeProfile = async (employeeId) => {
 };
 
 const getTripsForEmployee = async (employeeId) => {
-    const rows = await knex('trips as t')
+    // Старая схема: используем employeeId напрямую
+    const trips = await knex('trips as t')
         .select(
             't.id', 
             't.destination', 
@@ -213,23 +203,47 @@ const getTripsForEmployee = async (employeeId) => {
             't.endDate', 
             't.status', 
             't.transport', 
-            't.organizationId', 
-            'o.name as organizationName',
-            knex.raw(`(SELECT GROUP_CONCAT(tp.employeeId) FROM trip_participants AS tp WHERE tp.tripId = t.id) as participants_str`)
+            't.organizationId',
+            't.employeeId',
+            't.groupId',
+            'o.name as organizationName'
         )
         .leftJoin('organizations as o', 't.organizationId', 'o.id')
-        .whereExists(function() {
-            this.select('*')
-                .from('trip_participants as tp')
-                .whereRaw('tp.tripId = t.id')
-                .andWhere('tp.employeeId', employeeId);
-        })
+        .where('t.employeeId', employeeId)
         .orderBy('t.startDate', 'desc');
     
-    return rows.map(trip => ({
-        ...trip,
-        participants: trip.participants_str ? trip.participants_str.split(',').map(Number) : []
+    // Для каждой командировки собираем участников из группы (если есть groupId)
+    const tripsWithParticipants = trips.map(trip => {
+        if (trip.groupId) {
+            // Это групповая командировка - нужно найти всех участников
+            return trip;
+        } else {
+            // Одиночная командировка
+            return trip;
+        }
+    });
+    
+    // Добавляем массив participants для каждой командировки
+    const result = await Promise.all(tripsWithParticipants.map(async trip => {
+        let participants;
+        if (trip.groupId) {
+            // Групповая: находим всех с таким же groupId
+            const groupTrips = await knex('trips')
+                .select('employeeId')
+                .where({ groupId: trip.groupId })
+                .whereNotNull('employeeId');
+            participants = groupTrips.map(t => t.employeeId);
+        } else {
+            // Одиночная: только текущий сотрудник
+            participants = trip.employeeId ? [trip.employeeId] : [];
+        }
+        return {
+            ...trip,
+            participants
+        };
     }));
+    
+    return result;
 };
 
 const invalidateGlobalRecordsCache = () => { 

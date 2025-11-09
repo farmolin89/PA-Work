@@ -83,12 +83,13 @@ module.exports = (db) => {
         deleteByIds: async (ids) => {
             if (!ids || !Array.isArray(ids) || ids.length === 0) {
                 console.warn("Попытка удаления результатов с пустым или некорректным массивом ID.");
-                return;
+                return 0;
             }
 
             return db.transaction(async (trx) => {
                 await trx('answers').whereIn('result_id', ids).del();
-                await trx('results').whereIn('id', ids).del();
+                const deletedCount = await trx('results').whereIn('id', ids).del();
+                return deletedCount;
             });
         }
     };
