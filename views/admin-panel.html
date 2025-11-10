@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Панель администрирования - Корпоративный портал</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/admin/admin-panel.css">
+</head>
+<body>
+    <!-- Шапка -->
+    <div class="header">
+        <div class="logo">
+            <div class="logo-icon">
+                <i class="fas fa-cube"></i>
+            </div>
+            <div class="logo-text">
+                <h1>Админ-панель</h1>
+                <p>Управление системой</p>
+            </div>
+        </div>
+        <div class="user-actions">
+            <div class="user-profile">
+                <div class="user-avatar" id="userAvatar">АД</div>
+                <div class="user-info">
+                    <span class="user-name" id="userName">Загрузка...</span>
+                    <span class="user-role" id="userRole">...</span>
+                </div>
+            </div>
+            <a href="/logout" class="logout-button">
+                <i class="fas fa-sign-out-alt"></i>
+            </a>
+        </div>
+    </div>
+    
+    <div class="container">
+        <!-- Сайдбар -->
+        <div class="sidebar">
+            <ul class="nav-links">
+                <li><a href="#" class="active" data-section="home"><i class="fas fa-home"></i> <span>Главная</span></a></li>
+                <li><a href="#" data-section="users"><i class="fas fa-users"></i> <span>Пользователи</span></a></li>
+                <li><a href="#" data-section="analytics"><i class="fas fa-chart-bar"></i> <span>Аналитика</span></a></li>
+                <li><a href="#" data-section="settings"><i class="fas fa-cog"></i> <span>Настройки</span></a></li>
+                <li><a href="#" data-section="notifications"><i class="fas fa-bell"></i> <span>Уведомления</span></a></li>
+                <li><a href="#" data-section="security"><i class="fas fa-shield-alt"></i> <span>Безопасность</span></a></li>
+                <li><a href="#" data-section="updates"><i class="fas fa-rocket"></i> <span>Обновления</span></a></li>
+            </ul>
+            <div class="sidebar-footer">
+                <a href="/dashboard" class="back-to-portal">
+                    <i class="fas fa-arrow-left"></i>
+                    <span>Вернуться к порталу</span>
+                </a>
+            </div>
+        </div>
+        
+        <!-- Основной контент -->
+        <div class="main-content">
+            <div class="content">
+                <!-- Главная страница -->
+                <div id="home" class="content-section active">
+                    <!-- Статистика -->
+                    <div class="stats-cards">
+                        <div class="stat-card">
+                            <div class="stat-icon icon-1">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3>Всего пользователей</h3>
+                                <div class="stat-value" id="totalUsers">1,248</div>
+                                <div class="stat-change positive">
+                                    <i class="fas fa-arrow-up"></i> 12% за месяц
+                                </div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon icon-2">
+                                <i class="fas fa-user-check"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3>Активные сейчас</h3>
+                                <div class="stat-value" id="activeUsers">156</div>
+                                <div class="stat-change positive">
+                                    <i class="fas fa-arrow-up"></i> 5% за день
+                                </div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon icon-3">
+                                <i class="fas fa-user-clock"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3>Ожидают подтверждения</h3>
+                                <div class="stat-value" id="pendingUsers">24</div>
+                                <div class="stat-change negative">
+                                    <i class="fas fa-arrow-down"></i> 3% за неделю
+                                </div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon icon-4">
+                                <i class="fas fa-shield-alt"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3>События безопасности</h3>
+                                <div class="stat-value" id="securityEvents">8</div>
+                                <div class="stat-change positive">
+                                    <i class="fas fa-arrow-down"></i> 60% за месяц
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Панели -->
+                    <div class="panels">
+                        <div class="panel">
+                            <div class="panel-header">
+                                <h3>Управление пользователями</h3>
+                            </div>
+                            <div class="panel-content">
+                                <div class="table-container">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Пользователь</th>
+                                                <th>Должность</th>
+                                                <th>Дата регистрации</th>
+                                                <th>Статус</th>
+                                                <th>Роль</th>
+                                                <th>Действия</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="usersTableBody"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="panel">
+                            <div class="panel-header">
+                                <h3>История обновлений</h3>
+                            </div>
+                            <div class="panel-content">
+                                <div class="update-version">
+                                    <h4><i class="fas fa-rocket"></i> Версия 2.4.1 (10 ноября 2025)</h4>
+                                    <ul>
+                                        <li>Добавлена админ-панель управления пользователями</li>
+                                        <li>Улучшено отображение регистрационных номеров в графике поверки</li>
+                                        <li>Оптимизирована работа модуля поверки оборудования</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Другие секции (пользователи, аналитика и т.д.) -->
+                <div id="users" class="content-section">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h3>Все пользователи</h3>
+                        </div>
+                        <div class="panel-content">
+                            <div class="table-container">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Пользователь</th>
+                                            <th>Должность</th>
+                                            <th>Дата регистрации</th>
+                                            <th>Статус</th>
+                                            <th>Роль</th>
+                                            <th>Действия</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="usersTableBody2"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="analytics" class="content-section">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h3>Аналитика</h3>
+                        </div>
+                        <div class="panel-content">
+                            <p style="color: var(--text-light); text-align: center; padding: 40px;">Раздел в разработке</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="settings" class="content-section">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h3>Настройки системы</h3>
+                        </div>
+                        <div class="panel-content">
+                            <p style="color: var(--text-light); text-align: center; padding: 40px;">Раздел в разработке</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="notifications" class="content-section">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h3>Уведомления</h3>
+                        </div>
+                        <div class="panel-content">
+                            <p style="color: var(--text-light); text-align: center; padding: 40px;">Раздел в разработке</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="security" class="content-section">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h3>Безопасность</h3>
+                        </div>
+                        <div class="panel-content">
+                            <p style="color: var(--text-light); text-align: center; padding: 40px;">Раздел в разработке</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="updates" class="content-section">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h3>История обновлений</h3>
+                        </div>
+                        <div class="panel-content">
+                            <div class="update-version">
+                                <h4><i class="fas fa-rocket"></i> Версия 2.4.1 (10 ноября 2025)</h4>
+                                <ul>
+                                    <li>Добавлена админ-панель управления пользователями</li>
+                                    <li>Улучшено отображение регистрационных номеров в графике поверки</li>
+                                    <li>Оптимизирована работа модуля поверки оборудования</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Модальные окна -->
+    <div id="roleModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Назначение роли пользователю</h2>
+                <span class="close" onclick="closeRoleModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Имя пользователя:</label>
+                    <input type="text" id="userName" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Выберите роль:</label>
+                    <div class="role-selector">
+                        <div class="role-option selected" data-role="user" onclick="selectRole(this)">
+                            <i class="fas fa-user"></i>
+                            <div>Пользователь</div>
+                        </div>
+                        <div class="role-option" data-role="admin" onclick="selectRole(this)">
+                            <i class="fas fa-user-shield"></i>
+                            <div>Администратор</div>
+                        </div>
+                        <div class="role-option" data-role="superadmin" onclick="selectRole(this)">
+                            <i class="fas fa-crown"></i>
+                            <div>Супер-администратор</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-danger" onclick="closeRoleModal()">Отмена</button>
+                    <button class="btn btn-success" onclick="assignRole()">
+                        <i class="fas fa-check"></i> Назначить
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="addUserModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Добавление пользователя</h2>
+                <span class="close" onclick="closeAddUserModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Имя пользователя:</label>
+                    <input type="text" id="newUserName" placeholder="Введите имя">
+                </div>
+                <div class="form-group">
+                    <label>Email:</label>
+                    <input type="email" id="newUserEmail" placeholder="Введите email">
+                </div>
+                <div class="form-group">
+                    <label>Роль:</label>
+                    <select id="newUserRole">
+                        <option value="user">Пользователь</option>
+                        <option value="admin">Администратор</option>
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-danger" onclick="closeAddUserModal()">Отмена</button>
+                    <button class="btn btn-success" onclick="addNewUser()">
+                        <i class="fas fa-check"></i> Добавить
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="notification" class="notification">
+        <i class="fas fa-check-circle"></i>
+        <span id="notificationText">Успешно!</span>
+    </div>
+    
+    <script src="/js/admin/admin-panel.js"></script>
+</body>
+</html>
