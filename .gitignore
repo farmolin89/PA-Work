@@ -1,0 +1,111 @@
+# Логи
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Файлы базы данных (кроме основной базы)
+*.sqlite
+*.sqlite3
+database/
+
+# Переменные окружения (кроме основного .env)
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Зависимости
+node_modules/
+npm-packages-offline-cache/
+
+# Сборка
+dist/
+build/
+
+# Операционные системы
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE и редакторы
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Временные файлы
+.tmp
+.temp
+*.tmp
+
+# Документация
+docs/_build/
+
+# Кэш
+.cache/
+.parcel-cache/
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# Backups
+*.backup
+*.bak
+
+# OS generated files
+Icon?
+nohup.out
+
+# Проект-специфичные
+uploads/
+temp/
+backups/
+
+# Деплой
+.deploy/
+deploy.ini
+
+# Документы пользователей
+*.pdf
+*.doc
+*.docx
+*.xls
+*.xlsx
