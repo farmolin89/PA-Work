@@ -1,10 +1,11 @@
-// ===================================================================
+﻿// ===================================================================
 // Файл: __tests__/auth.test.js
 // Описание: Интеграционные тесты для авторизации и регистрации
 // ===================================================================
 
 const request = require('supertest');
 const bcrypt = require('bcrypt');
+const { createTestUser } = require('./helpers/testHelpers');
 
 // Мокаем event-emitter перед импортом сервера
 jest.mock('../event-emitter', () => ({
@@ -66,8 +67,8 @@ describe('Интеграционные тесты для авторизации 
     it('должен вернуть ошибку 409 при попытке зарегистрировать существующего пользователя', async () => {
       // Создаем пользователя
       const hashedPassword = await bcrypt.hash('password123', 10);
-      await knex('users').insert({
-        name: 'Петров Петр Петрович',
+      await createTestUser(knex, {
+      name: 'Петров Петр Петрович',
         position: 'Менеджер',
         password: hashedPassword
       });
@@ -129,8 +130,8 @@ describe('Интеграционные тесты для авторизации 
     beforeEach(async () => {
       // Создаем тестового пользователя для логина
       const hashedPassword = await bcrypt.hash('testPassword123', 10);
-      await knex('users').insert({
-        name: 'Авторизов Автор Авторович',
+      await createTestUser(knex, {
+      name: 'Авторизов Автор Авторович',
         position: 'Администратор',
         password: hashedPassword
       });
@@ -228,8 +229,8 @@ describe('Интеграционные тесты для авторизации 
     it('должен вернуть данные авторизованного пользователя', async () => {
       // Создаем и авторизуем пользователя
       const hashedPassword = await bcrypt.hash('password123', 10);
-      await knex('users').insert({
-        name: 'Тестовый Пользователь',
+      await createTestUser(knex, {
+      name: 'Тестовый Пользователь',
         position: 'Тестировщик',
         password: hashedPassword
       });
@@ -263,8 +264,8 @@ describe('Интеграционные тесты для авторизации 
     it('должен успешно выйти из системы и очистить сессию', async () => {
       // Создаем и авторизуем пользователя
       const hashedPassword = await bcrypt.hash('password123', 10);
-      await knex('users').insert({
-        name: 'Выходящий Пользователь',
+      await createTestUser(knex, {
+      name: 'Выходящий Пользователь',
         position: 'Инженер',
         password: hashedPassword
       });
@@ -295,8 +296,8 @@ describe('Интеграционные тесты для авторизации 
   describe('POST /api/forgot-password', () => {
     beforeEach(async () => {
       const hashedPassword = await bcrypt.hash('oldPassword', 10);
-      await knex('users').insert({
-        name: 'Забывчивый Пользователь',
+      await createTestUser(knex, {
+      name: 'Забывчивый Пользователь',
         position: 'Менеджер',
         password: hashedPassword
       });
@@ -346,8 +347,8 @@ describe('Интеграционные тесты для авторизации 
       resetToken = 'valid-reset-token-12345';
       const resetTokenExpiry = Date.now() + 3600000; // 1 час
 
-      const [id] = await knex('users').insert({
-        name: 'Сбрасывающий Пароль',
+      const id = await createTestUser(knex, {
+      name: 'Сбрасывающий Пароль',
         position: 'Инженер',
         password: hashedPassword,
         resetToken: resetToken,
@@ -397,8 +398,8 @@ describe('Интеграционные тесты для авторизации 
       const expiredToken = 'expired-token-12345';
       const expiredTokenExpiry = Date.now() - 3600000; // 1 час назад
 
-      await knex('users').insert({
-        name: 'Просроченный Токен',
+      await createTestUser(knex, {
+      name: 'Просроченный Токен',
         position: 'Техник',
         password: hashedPassword,
         resetToken: expiredToken,
@@ -438,8 +439,8 @@ describe('Интеграционные тесты для авторизации 
     it('должен разрешить доступ к защищенным эндпоинтам после авторизации', async () => {
       // Создаем и авторизуем пользователя
       const hashedPassword = await bcrypt.hash('password123', 10);
-      await knex('users').insert({
-        name: 'Авторизованный Пользователь',
+      await createTestUser(knex, {
+      name: 'Авторизованный Пользователь',
         position: 'Администратор',
         password: hashedPassword
       });

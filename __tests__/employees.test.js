@@ -8,6 +8,7 @@
 
 const request = require('supertest');
 const bcrypt = require('bcrypt');
+const { createTestUser } = require('./helpers/testHelpers');
 const app = require('../server');
 const { knex } = require('../config/database');
 
@@ -20,7 +21,7 @@ describe('Интеграционные тесты для API сотрудник�
     agent = request.agent(app);
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash('password123', saltRounds);
-    await knex('users').insert({
+    await createTestUser(knex, {
       name: 'testuser',
       position: 'tester',
       password: hashedPassword

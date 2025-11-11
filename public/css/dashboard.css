@@ -96,6 +96,7 @@ header.new-header {
     font-weight: 800;
     background: linear-gradient(135deg, var(--primary), var(--primary-dark));
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
     line-height: 1.2;
     margin: 0;

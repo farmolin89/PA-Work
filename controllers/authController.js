@@ -18,7 +18,13 @@ exports.register = async (req, res, next) => {
         }
         
         const hashedPassword = await bcrypt.hash(password, saltRounds);
-        await knex('users').insert({ name, position, password: hashedPassword });
+        await knex('users').insert({ 
+            name, 
+            position, 
+            password: hashedPassword,
+            registrationDate: new Date().toISOString(),
+            role: 'user'
+        });
         
         res.status(201).json({ message: 'Регистрация прошла успешно!' });
     } catch (error) {
