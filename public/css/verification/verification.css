@@ -258,6 +258,34 @@ body {
 .add-reg-number { background: none; border: 1px dashed var(--border-color); color: var(--primary-blue); cursor: pointer; padding: 10px 14px; border-radius: 8px; display: flex; align-items: center; gap: 8px; transition: all 0.3s ease; font-weight: 600; justify-content: center; font-size: 14px; }
 .add-reg-number:hover { background-color: var(--very-light-blue); border-color: var(--primary-blue); transform: translateY(-1px); }
 
+/* Отображение регистрационных номеров в таблице */
+.reg-numbers-list { line-height: 1.6; }
+.reg-number-link { 
+    color: var(--primary-blue); 
+    text-decoration: none; 
+    transition: all 0.2s ease;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid #e0f2fe;
+    background-color: #f0f9ff;
+    display: inline-block;
+    margin: 2px 0;
+}
+.reg-number-link:hover { 
+    color: #1e40af; 
+    text-decoration: none;
+    border-color: #bae6fd;
+    background-color: #e0f2fe;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(37, 99, 235, 0.08);
+}
+.reg-number-plain { 
+    color: var(--text-dark);
+    padding: 4px 8px;
+    display: inline-block;
+    margin: 2px 0;
+}
+
 .date-fields-row-three, .date-fields-row-two { display: flex; gap: 12px; margin-bottom: 12px; }
 .date-fields-row-three .form-group, .date-fields-row-two .form-group { flex: 1; min-width: 0; width: 100%; position: relative; }
 .date-fields-row-three .form-input, .date-fields-row-two .form-input, .date-fields-row-three .flatpickr-input, .date-fields-row-two .flatpickr-input, .date-fields-row-three .flatpickr-wrapper, .date-fields-row-two .flatpickr-wrapper { width: 100% !important; min-width: 0 !important; box-sizing: border-box; }

@@ -120,11 +120,28 @@ exports.resetPassword = async (req, res, next) => {
 };
 
 // --- ПОЛУЧЕНИЕ ДАННЫХ ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ ---
-exports.getCurrentUser = (req, res) => {
-    if (req.session.user) {
-        res.json(req.session.user);
-    } else {
-        res.status(401).json({ errors: [{ message: 'Пользователь не авторизован' }] });
+exports.getCurrentUser = async (req, res) => {
+    try {
+        if (req.session.user) {
+            // Получаем актуальные данные пользователя из БД, включая роль
+            const user = await knex('users')
+                .where('id', req.session.user.id)
+                .select('id', 'name', 'position', 'role')
+                .first();
+            
+            if (user) {
+                // Обновляем данные в сессии
+                req.session.user = user;
+                res.json(user);
+            } else {
+                res.status(401).json({ errors: [{ message: 'Пользователь не найден' }] });
+            }
+        } else {
+            res.status(401).json({ errors: [{ message: 'Пользователь не авторизован' }] });
+        }
+    } catch (error) {
+        console.error("Ошибка при получении данных пользователя:", error);
+        res.status(500).json({ errors: [{ message: 'Ошибка сервера' }] });
     }
 };
 
@@ -139,4 +156,132 @@ exports.logout = (req, res) => {
         res.clearCookie('connect.sid');
         res.redirect('/');
     });
+};
+
+// --- ПОЛУЧЕНИЕ ВСЕХ ПОЛЬЗОВАТЕЛЕЙ (ДЛЯ АДМИН-ПАНЕЛИ) ---
+exports.getAllUsers = async (req, res, next) => {
+    try {
+        const users = await knex('users')
+            .select('id', 'name', 'position', 'role', 'registrationDate')
+            .orderBy('id', 'desc');
+        
+        res.json(users);
+    } catch (error) {
+        console.error("Ошибка при получении списка пользователей:", error);
+        next(error);
+    }
+};
+
+// --- ПОЛУЧЕНИЕ СТАТИСТИКИ (ДЛЯ АДМИН-ПАНЕЛИ) ---
+exports.getAdminStats = async (req, res, next) => {
+    try {
+        // Общее количество пользователей
+        const totalUsersResult = await knex('users').count('* as count').first();
+        const totalUsers = totalUsersResult.count || 0;
+        
+        // Активные пользователи (которые хотя бы раз входили в систему)
+        // Можно улучшить, добавив таблицу sessions или поле last_login
+        const activeUsers = totalUsers; // Пока считаем всех пользователей активными
+        
+        // Ожидающие подтверждения (если будет функционал регистрации с подтверждением)
+        const pendingUsers = 0;
+        
+        // События безопасности (можно подсчитать из логов или специальной таблицы)
+        // Например: неудачные попытки входа, сброс паролей и т.д.
+        const securityEventsResult = await knex('users')
+            .whereNotNull('resetToken')
+            .count('* as count')
+            .first();
+        const securityEvents = securityEventsResult.count || 0;
+        
+        const stats = {
+            totalUsers,
+            activeUsers,
+            pendingUsers,
+            securityEvents
+        };
+        
+        res.json(stats);
+    } catch (error) {
+        console.error("Ошибка при получении статистики:", error);
+        next(error);
+    }
+};
+
+// --- УДАЛЕНИЕ ПОЛЬЗОВАТЕЛЯ (ТОЛЬКО ДЛЯ СУПЕРАДМИНОВ) ---
+exports.deleteUser = async (req, res, next) => {
+    try {
+        const userId = parseInt(req.params.id);
+        const currentUser = req.session.user;
+        
+        // Проверяем, что пользователь является суперадмином
+        const user = await knex('users').where('id', currentUser.id).first();
+        if (!user || user.role !== 'superadmin') {
+            return res.status(403).json({ 
+                message: 'Доступ запрещен. Только супер-администраторы могут удалять пользователей.' 
+            });
+        }
+        
+        // Проверяем, что пользователь не пытается удалить сам себя
+        if (userId === currentUser.id) {
+            return res.status(400).json({ 
+                message: 'Вы не можете удалить свою учетную запись.' 
+            });
+        }
+        
+        // Удаляем пользователя
+        const deleted = await knex('users').where('id', userId).del();
+        
+        if (deleted === 0) {
+            return res.status(404).json({ 
+                message: 'Пользователь не найден.' 
+            });
+        }
+        
+        res.json({ message: 'Пользователь успешно удален' });
+    } catch (error) {
+        console.error("Ошибка при удалении пользователя:", error);
+        next(error);
+    }
+};
+
+// --- ИЗМЕНЕНИЕ РОЛИ ПОЛЬЗОВАТЕЛЯ (ТОЛЬКО ДЛЯ СУПЕРАДМИНОВ) ---
+exports.updateUserRole = async (req, res, next) => {
+    try {
+        const userId = parseInt(req.params.id);
+        const { role } = req.body;
+        const currentUser = req.session.user;
+        
+        // Проверяем, что пользователь является суперадмином
+        const user = await knex('users').where('id', currentUser.id).first();
+        if (!user || user.role !== 'superadmin') {
+            return res.status(403).json({ 
+                message: 'Доступ запрещен. Только супер-администраторы могут изменять роли.' 
+            });
+        }
+        
+        // Валидация роли
+        const validRoles = ['user', 'admin', 'superadmin'];
+        if (!validRoles.includes(role)) {
+            return res.status(400).json({ 
+                message: 'Недопустимое значение роли.' 
+            });
+        }
+        
+        // Обновляем роль
+        const updated = await knex('users')
+            .where('id', userId)
+            .update({ role });
+        
+        if (updated === 0) {
+            return res.status(404).json({ 
+                message: 'Пользователь не найден.' 
+            });
+        }
+        
+        res.json({ message: 'Роль пользователя успешно обновлена', role });
+    } catch (error) {
+        console.error("Ошибка при обновлении роли:", error);
+        next(error);
+    }
 };

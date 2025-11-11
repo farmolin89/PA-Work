@@ -66,6 +66,28 @@ router.get('/verification', isAuthenticated, (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'views', 'verification.html'));
 });
 
+// Middleware для проверки роли супер-администратора
+const isSuperAdmin = async (req, res, next) => {
+    try {
+        const { knex } = require('../config/database');
+        const user = await knex('users').where('id', req.session.user.id).first();
+        
+        if (!user || user.role !== 'superadmin') {
+            return res.status(403).send('Доступ запрещен. Только супер-администраторы могут просматривать эту страницу.');
+        }
+        
+        next();
+    } catch (error) {
+        console.error('Ошибка проверки прав доступа:', error);
+        res.status(500).send('Ошибка сервера');
+    }
+};
+
+// Админ-панель управления пользователями (только для суперадминов)
+router.get('/admin-panel', isAuthenticated, isSuperAdmin, (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'views', 'admin-panel.html'));
+});
+
     // Справочная информация
     router.get('/help', isAuthenticated, (req, res) => {
         res.sendFile(path.join(__dirname, '..', 'views', 'help.html'));

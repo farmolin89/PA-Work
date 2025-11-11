@@ -103,7 +103,7 @@ function renderSiRow(item, index) {
     const { statusClass, statusText } = helpers.getVerificationStatus(item.nextVerificationDate);
     const regNumbersHTML = (item.regNumbers || []).map(reg =>
         reg.url ? `<a href="${reg.url}" class="reg-number-link" target="_blank">${helpers.escapeHTML(reg.number)}</a>` : `<div class="reg-number-plain">${helpers.escapeHTML(reg.number)}</div>`
-    ).join('');
+    ).join('<br>');
 
     const row = document.createElement('tr');
     row.dataset.id = item.id;

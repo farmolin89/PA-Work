@@ -90,6 +90,12 @@ router.get('/csrf-token', (req, res) => {
 // --- 2. ЗАЩИЩЕННЫЕ МАРШРУТЫ API ---
 // ===================================================================
 
+// --- Админ-панель (Users Management) ---
+router.get('/admin/users', isAuthenticated, authController.getAllUsers);
+router.get('/admin/stats', isAuthenticated, authController.getAdminStats);
+router.delete('/admin/users/:id', isAuthenticated, authController.deleteUser);
+router.put('/admin/users/:id/role', isAuthenticated, authController.updateUserRole);
+
 // --- Сотрудники (Employees) ---
 router.get('/employees', isAuthenticated, employeeController.getAllEmployees);
 router.post('/employees', isAuthenticated, employeeValidation, handleValidationErrors, employeeController.createEmployee);

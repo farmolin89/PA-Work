@@ -69,6 +69,28 @@ export async function fetchUserData() {
             const firstName = getFirstName(user.name);
             greetingEl.textContent = `${getGreeting()}, ${firstName}!`;
         }
+        
+        // Показываем/скрываем элемент dropdown для суперадминов
+        const userProfileWrapper = document.querySelector('.user-profile-wrapper');
+        const userDropdown = document.getElementById('userDropdown');
+        
+        if (user.role === 'superadmin') {
+            // Для суперадминов показываем dropdown
+            if (userDropdown) {
+                userDropdown.style.pointerEvents = 'auto';
+            }
+        } else {
+            // Для остальных скрываем полностью
+            if (userDropdown) {
+                userDropdown.style.display = 'none';
+                userDropdown.style.pointerEvents = 'none';
+            }
+            // Убираем курсор pointer с профиля
+            const userProfile = document.getElementById('userProfileToggle');
+            if (userProfile) {
+                userProfile.style.cursor = 'default';
+            }
+        }
 
     } catch (error) {
         console.error('Ошибка при загрузке данных пользователя:', error);

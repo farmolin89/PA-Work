@@ -161,6 +161,7 @@ if (require.main === module) {
         console.log(`-------------------------------------------------`);
         console.log(`-> Локальный доступ:    http://localhost:${port}`);
         console.log(`-> Доступ из сети:      http://${getLocalIPv4()}:${port}`);
+        console.log(`-> Админ-панель:        http://localhost:${port}/admin-panel`);
         console.log(`-------------------------------------------------`);
         console.log(`Текущий режим: ${process.env.NODE_ENV || 'development'}`);
         console.log(`CSRF защита: ${process.env.NODE_ENV === 'test' ? 'ОТКЛЮЧЕНА (тесты)' : 'АКТИВИРОВАНА'}`);
