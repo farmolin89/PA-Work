@@ -13,6 +13,40 @@ let usersData = {
     users: []
 };
 
+/**
+ * Определение пола по ФИО
+ * @param {string} fio - Полное имя
+ * @returns {string} - 'male', 'female', или 'unknown'
+ */
+function getGenderByName(fio) {
+    if (!fio) return 'unknown';
+    const parts = fio.trim().split(' ');
+    if (parts.length < 2) return 'unknown';
+    
+    const surname = parts[0];
+    const name = parts[1];
+    const patronymic = parts[2] || '';
+    
+    // Проверка по отчеству (наиболее надежный способ)
+    if (patronymic) {
+        if (patronymic.endsWith('ович') || patronymic.endsWith('евич')) return 'male';
+        if (patronymic.endsWith('овна') || patronymic.endsWith('евна')) return 'female';
+    }
+    
+    // Проверка по фамилии
+    if (surname.endsWith('ов') || surname.endsWith('ев') || surname.endsWith('ин')) return 'male';
+    if (surname.endsWith('ова') || surname.endsWith('ева') || surname.endsWith('ина')) return 'female';
+    if (surname.endsWith('ский')) return 'male';
+    if (surname.endsWith('ская')) return 'female';
+    
+    // Проверка по имени
+    const maleExceptions = ['никита', 'илья', 'лука', 'фома', 'кузьма'];
+    if (maleExceptions.includes(name.toLowerCase())) return 'male';
+    if (name.endsWith('а') || name.endsWith('я')) return 'female';
+    
+    return 'male'; // По умолчанию мужской
+}
+
 // Состояние сортировки для каждой таблицы и колонки
 let sortState = {
     table1: {},  // Главная таблица
@@ -134,11 +168,13 @@ async function loadUsersFromServer() {
             return {
                 id: user.id,
                 name: user.name,
+                full_name: user.name, // Добавляем для совместимости
                 position: user.position,
                 email: '-', // Пока нет email в БД
                 date: formattedDate,
                 status: user.status || 'active',
-                role: user.role || 'user'
+                role: user.role || 'user',
+                registrationDate: user.registrationDate // ВАЖНО: сохраняем оригинальную дату
             };
         });
         
@@ -211,12 +247,14 @@ async function loadCurrentUser() {
 
 /**
  * Обновление статистики на главной странице
+ * ОТКЛЮЧЕНО: статистика теперь не отображается на главной странице
  */
 function updateStats() {
-    document.getElementById('totalUsers').textContent = usersData.totalUsers.toLocaleString();
-    document.getElementById('activeUsers').textContent = usersData.activeUsers.toLocaleString();
-    document.getElementById('pendingUsers').textContent = usersData.pendingUsers.toLocaleString();
-    document.getElementById('securityEvents').textContent = usersData.securityEvents.toLocaleString();
+    // Закомментировано - элементы удалены из HTML
+    // document.getElementById('totalUsers').textContent = usersData.totalUsers.toLocaleString();
+    // document.getElementById('activeUsers').textContent = usersData.activeUsers.toLocaleString();
+    // document.getElementById('pendingUsers').textContent = usersData.pendingUsers.toLocaleString();
+    // document.getElementById('securityEvents').textContent = usersData.securityEvents.toLocaleString();
 }
 
 /**
@@ -326,6 +364,9 @@ function addUserToTable(user, tableBody) {
     
     const initials = user.name.split(' ').slice(0, 2).map(n => n[0]).join('');
     
+    // Определяем пол по ФИО
+    const gender = getGenderByName(user.name);
+    
     // Определяем иконку и текст роли
     let roleIcon = 'fa-user';
     let roleText = 'Пользователь';
@@ -351,14 +392,16 @@ function addUserToTable(user, tableBody) {
         statusBadge = '<span class="status status-pending">Ожидает подтверждения</span>';
         if (currentUserRole === 'superadmin') {
             actionButtons = `
-                <button class="action-btn approve-btn" onclick="approveUser(this)" title="Подтвердить"><i class="fas fa-check"></i></button>
-                <button class="action-btn reject-btn" onclick="rejectUser(this)" title="Отклонить"><i class="fas fa-times"></i></button>
+                <div class="user-actions">
+                    <button type="button" class="btn-icon approve" onclick="approveUser(this)" title="Подтвердить"><i class="fas fa-check"></i></button>
+                    <button type="button" class="btn-icon reject" onclick="rejectUser(this)" title="Отклонить"><i class="fas fa-times"></i></button>
+                </div>
             `;
         }
     } else if (user.status === 'active') {
         statusBadge = '<span class="status status-success">Активен</span>';
         if (currentUserRole === 'superadmin') {
-            actionButtons = `<button class="action-btn delete-btn" onclick="deleteUser(this)" title="Удалить"><i class="fas fa-trash"></i></button>`;
+            actionButtons = `<div class="user-actions"><button type="button" class="btn-icon delete" onclick="deleteUser(this)" title="Удалить"><i class="fas fa-trash-alt"></i></button></div>`;
         }
     } else if (user.status === 'rejected') {
         statusBadge = '<span class="status status-error">Отклонен</span>';
@@ -367,7 +410,7 @@ function addUserToTable(user, tableBody) {
     newRow.innerHTML = `
         <td>
             <div class="user">
-                <div class="user-avatar-small">${initials}</div>
+                <div class="user-avatar-small avatar-${gender}">${initials}</div>
                 <span>${user.name}</span>
             </div>
         </td>
@@ -383,7 +426,7 @@ function addUserToTable(user, tableBody) {
         newRow.style.cursor = 'pointer';
         newRow.addEventListener('click', function(e) {
             // Игнорируем клики на кнопки действий
-            if (e.target.closest('.action-btn')) {
+            if (e.target.closest('.btn-icon') || e.target.closest('.user-actions')) {
                 return;
             }
             showRoleModal(this);
@@ -559,12 +602,16 @@ async function renderUsersTable() {
         addUserToTable(user, fragment2);
     });
     
-    // Очищаем и заполняем таблицы одной операцией
-    tableBody1.innerHTML = '';
-    tableBody1.appendChild(fragment1);
+    // Очищаем и заполняем таблицы одной операцией (только если элементы существуют)
+    if (tableBody1) {
+        tableBody1.innerHTML = '';
+        tableBody1.appendChild(fragment1);
+    }
     
-    tableBody2.innerHTML = '';
-    tableBody2.appendChild(fragment2);
+    if (tableBody2) {
+        tableBody2.innerHTML = '';
+        tableBody2.appendChild(fragment2);
+    }
 }
 
 /**
@@ -603,7 +650,52 @@ document.addEventListener('DOMContentLoaded', async function() {
                 section.classList.remove('active');
             });
             
-            document.getElementById(sectionId).classList.add('active');
+            const targetSection = document.getElementById(sectionId);
+            if (targetSection) {
+                targetSection.classList.add('active');
+                
+                // Загружаем аналитику при открытии раздела
+                if (sectionId === 'analytics') {
+                    console.log('Клик по сайдбару - загрузка аналитики');
+                    loadAnalytics();
+                }
+            }
+        });
+    });
+    
+    // Навигация по карточкам на главной странице
+    document.querySelectorAll('.feature-card[data-section]').forEach(card => {
+        card.addEventListener('click', function() {
+            const sectionId = this.getAttribute('data-section');
+            console.log('Клик по карточке:', sectionId);
+            if (!sectionId) return;
+            
+            // Переключаем активную ссылку в сайдбаре
+            document.querySelectorAll('.nav-links a').forEach(a => {
+                a.classList.remove('active');
+                if (a.getAttribute('data-section') === sectionId) {
+                    a.classList.add('active');
+                    console.log('Активирована ссылка:', sectionId);
+                }
+            });
+            
+            // Переключаем активную секцию
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            const targetSection = document.getElementById(sectionId);
+            if (targetSection) {
+                targetSection.classList.add('active');
+                console.log('Открыта секция:', sectionId);
+                
+                // Загружаем аналитику при открытии раздела
+                if (sectionId === 'analytics') {
+                    loadAnalytics();
+                }
+            } else {
+                console.error('Секция не найдена:', sectionId);
+            }
         });
     });
     
@@ -787,4 +879,364 @@ async function rejectUser(button) {
         console.error('Ошибка при отклонении регистрации:', error);
         showNotification(error.message || 'Ошибка при отклонении регистрации', 'error');
     }
+}
+
+// === АНАЛИТИКА АДМИН-ПАНЕЛИ ===
+let registrationChart = null;
+let statusChart = null;
+let rolesChart = null;
+let currentPeriod = 30;
+
+/**
+ * Загрузка и отображение аналитики админ-панели
+ */
+async function loadAnalytics() {
+    console.log('=== ЗАГРУЗКА АНАЛИТИКИ ===');
+    try {
+        // Загружаем полные данные о пользователях
+        console.log('Загрузка пользователей...');
+        await loadUsersFromServer();
+        console.log('Загружено пользователей:', usersData.users.length);
+        console.log('Данные пользователей:', usersData.users);
+        
+        // Загружаем статистику
+        console.log('Загрузка статистики...');
+        await loadStatsFromServer();
+        console.log('Статистика:', usersData);
+        
+        // Обновляем метрики
+        console.log('Обновление метрик...');
+        updateMetric('totalUsers', usersData.totalUsers);
+        updateMetric('activeUsers', usersData.activeUsers);
+        updateMetric('pendingUsers', usersData.pendingUsers);
+        
+        // Процент активных пользователей
+        const activePercent = usersData.totalUsers > 0 
+            ? Math.round((usersData.activeUsers / usersData.totalUsers) * 100) 
+            : 0;
+        updateMetric('activePercent', activePercent);
+        
+        // Подсчитываем администраторов и суперадминов
+        const adminCount = usersData.users.filter(u => u.role === 'admin').length;
+        const superAdminCount = usersData.users.filter(u => u.role === 'superadmin').length;
+        updateMetric('adminCount', adminCount);
+        updateMetric('superAdminCount', superAdminCount);
+        
+        // Регистрации за месяц и неделю
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        
+        const monthRegistrations = usersData.users.filter(u => {
+            if (!u.registrationDate) return false;
+            // registrationDate хранится как timestamp
+            const regDate = new Date(u.registrationDate);
+            return regDate >= thirtyDaysAgo;
+        }).length;
+        
+        const weekRegistrations = usersData.users.filter(u => {
+            if (!u.registrationDate) return false;
+            const regDate = new Date(u.registrationDate);
+            return regDate >= sevenDaysAgo;
+        }).length;
+        
+        updateMetric('monthRegistrations', monthRegistrations);
+        updateMetric('weekRegistrations', weekRegistrations);
+        updateMetric('usersChange', monthRegistrations);
+        
+        // Загружаем графики
+        await loadRegistrationChart(currentPeriod);
+        
+        // Загружаем детализацию
+        loadRolesDetails();
+        loadPositionsDetails();
+        
+    } catch (error) {
+        console.error('Ошибка при загрузке аналитики:', error);
+    }
+}
+
+/**
+ * Переключение периода графика регистраций
+ */
+function switchRegistrationPeriod(period) {
+    currentPeriod = period;
+    
+    // Обновляем активную кнопку
+    document.querySelectorAll('.btn-chart').forEach(btn => {
+        btn.classList.remove('active');
+        if (parseInt(btn.getAttribute('data-period')) === period) {
+            btn.classList.add('active');
+        }
+    });
+    
+    loadRegistrationChart(period);
+}
+
+/**
+ * Обновление значения метрики
+ */
+function updateMetric(id, value) {
+    const element = document.getElementById(id);
+    if (element) {
+        element.textContent = value;
+    }
+}
+
+/**
+ * Загрузка и отрисовка графика регистраций
+ */
+async function loadRegistrationChart(days = 30) {
+    try {
+        const daysAgo = new Date();
+        daysAgo.setDate(daysAgo.getDate() - days);
+        
+        const registrationsByDate = new Map();
+        
+        // Инициализируем все даты нулями
+        for (let i = days - 1; i >= 0; i--) {
+            const date = new Date();
+            date.setDate(date.getDate() - i);
+            const dateString = date.toISOString().split('T')[0];
+            registrationsByDate.set(dateString, 0);
+        }
+        
+        // Подсчитываем регистрации
+        usersData.users.forEach(user => {
+            if (user.registrationDate) {
+                // registrationDate хранится как timestamp
+                const regDate = new Date(user.registrationDate);
+                if (regDate >= daysAgo) {
+                    const dateString = regDate.toISOString().split('T')[0];
+                    if (registrationsByDate.has(dateString)) {
+                        registrationsByDate.set(dateString, registrationsByDate.get(dateString) + 1);
+                    }
+                }
+            }
+        });
+        
+        const labels = [];
+        const data = [];
+        
+        registrationsByDate.forEach((count, date) => {
+            const d = new Date(date);
+            labels.push(d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }));
+            data.push(count);
+        });
+        
+        // Уничтожаем предыдущий график если существует
+        if (registrationChart) {
+            registrationChart.destroy();
+        }
+        
+        const ctx = document.getElementById('registrationChart');
+        if (!ctx) return;
+        
+        // Создаем градиент
+        const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 300);
+        gradient.addColorStop(0, 'rgba(16, 185, 129, 0.3)');
+        gradient.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
+        
+        registrationChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Новые регистрации',
+                    data: data,
+                    borderColor: '#10b981',
+                    backgroundColor: gradient,
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 5,
+                    pointBackgroundColor: '#10b981',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointHoverRadius: 7
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            font: {
+                                size: 12,
+                                family: "'Inter', sans-serif",
+                                weight: '500'
+                            },
+                            padding: 15,
+                            usePointStyle: true
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        padding: 12,
+                        titleFont: {
+                            size: 14,
+                            family: "'Inter', sans-serif"
+                        },
+                        bodyFont: {
+                            size: 13,
+                            family: "'Inter', sans-serif"
+                        },
+                        cornerRadius: 8
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0,
+                            font: {
+                                size: 11,
+                                family: "'Inter', sans-serif"
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            font: {
+                                size: 10,
+                                family: "'Inter', sans-serif"
+                            },
+                            maxRotation: 45,
+                            minRotation: 45
+                        },
+                        grid: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Ошибка при загрузке графика регистраций:', error);
+    }
+}
+
+/**
+ * Загрузка детализации по должностям
+ */
+function loadPositionsDetails() {
+    // Подсчитываем пользователей по должностям
+    const positionsMap = new Map();
+    
+    usersData.users.forEach(user => {
+        if (user.position) {
+            const count = positionsMap.get(user.position) || 0;
+            positionsMap.set(user.position, count + 1);
+        }
+    });
+    
+    // Сортируем по количеству
+    const sortedPositions = Array.from(positionsMap.entries())
+        .sort((a, b) => b[1] - a[1]);
+    
+    const container = document.getElementById('positionsList');
+    
+    if (!container) return;
+    
+    if (sortedPositions.length === 0) {
+        container.innerHTML = '<p style="color: var(--text-light); text-align: center; padding: 20px;">Нет данных о должностях</p>';
+        return;
+    }
+    
+    // Цвета для должностей
+    const colors = [
+        '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', 
+        '#10b981', '#06b6d4', '#6366f1', '#8b5cf6',
+        '#d946ef', '#f43f5e'
+    ];
+    
+    container.innerHTML = sortedPositions.map((item, index) => {
+        const [position, count] = item;
+        const color = colors[index % colors.length];
+        const percentage = ((count / usersData.users.length) * 100).toFixed(1);
+        
+        return `
+            <div class="role-detail-item">
+                <div class="role-detail-icon" style="background: ${color};">
+                    <i class="fas fa-briefcase"></i>
+                </div>
+                <div class="role-detail-info">
+                    <div class="role-detail-name">${position}</div>
+                    <div class="role-detail-desc">${percentage}% от всех сотрудников</div>
+                </div>
+                <div class="role-detail-count" style="color: ${color};">${count}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+/**
+ * Загрузка детализации ролей
+ */
+function loadRolesDetails() {
+    const roleCounts = {
+        user: usersData.users.filter(u => u.role === 'user').length,
+        admin: usersData.users.filter(u => u.role === 'admin').length,
+        superadmin: usersData.users.filter(u => u.role === 'superadmin').length
+    };
+    
+    const container = document.getElementById('rolesList');
+    
+    if (!container) return;
+    
+    const roleInfo = [
+        {
+            role: 'Пользователи',
+            count: roleCounts.user,
+            icon: 'fa-user',
+            color: '#3b82f6',
+            description: 'Обычные пользователи системы'
+        },
+        {
+            role: 'Администраторы',
+            count: roleCounts.admin,
+            icon: 'fa-user-shield',
+            color: '#8b5cf6',
+            description: 'Управление пользователями'
+        },
+        {
+            role: 'Суперадмины',
+            count: roleCounts.superadmin,
+            icon: 'fa-crown',
+            color: '#ec4899',
+            description: 'Полный доступ к системе'
+        }
+    ];
+    
+    container.innerHTML = roleInfo.map(item => `
+        <div class="role-detail-item">
+            <div class="role-detail-icon" style="background: ${item.color};">
+                <i class="fas ${item.icon}"></i>
+            </div>
+            <div class="role-detail-info">
+                <div class="role-detail-name">${item.role}</div>
+                <div class="role-detail-desc">${item.description}</div>
+            </div>
+            <div class="role-detail-count" style="color: ${item.color};">${item.count}</div>
+        </div>
+    `).join('');
+}
+
+/**
+ * Получение инициалов из имени
+ */
+function getInitials(name) {
+    if (!name) return '??';
+    const parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+        return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
 }

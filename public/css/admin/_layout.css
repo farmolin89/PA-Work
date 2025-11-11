@@ -113,6 +113,8 @@ body {
     padding: 2rem;
     overflow-y: auto; /* Прокручивается только эта область */
     background-color: #f5f7fb;
+    position: relative;
+    z-index: 1;
 }
 
 .main-content-area.is-changing {

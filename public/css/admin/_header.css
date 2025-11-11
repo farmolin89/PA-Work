@@ -33,6 +33,12 @@
     color: white;
     font-size: 1.4rem;
     box-shadow: 0 4px 12px rgba(42, 111, 219, 0.3);
+    transition: all 0.3s ease;
+}
+
+.logo:hover .logo-icon {
+    transform: rotate(10deg) scale(1.05);
+    box-shadow: 0 8px 20px rgba(42, 111, 219, 0.4);
 }
 
 .logo-text h1 {
@@ -75,8 +81,8 @@
 }
 
 .user-avatar {
-    width: 38px;
-    height: 38px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     background: var(--primary);
     display: flex;
@@ -84,7 +90,7 @@
     justify-content: center;
     color: white;
     font-weight: 600;
-    font-size: 1rem;
+    font-size: 1.1rem;
 }
 
 .user-info {
@@ -106,8 +112,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 38px;
-    height: 38px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     background: var(--light);
     border: 1px solid var(--gray-light);
