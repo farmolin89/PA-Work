@@ -1,10 +1,11 @@
-// ===================================================================
+﻿// ===================================================================
 // Файл: __tests__/eds.test.js
 // Описание: Интеграционные тесты для модуля ЭЦП (электронные цифровые подписи)
 // ===================================================================
 
 const request = require('supertest');
 const bcrypt = require('bcrypt');
+const { createTestUser } = require('./helpers/testHelpers');
 
 // Мокаем event-emitter перед импортом сервера
 jest.mock('../event-emitter', () => ({
@@ -29,7 +30,7 @@ describe('Интеграционные тесты для модуля ЭЦП (/a
 
     // Создаем тестового пользователя
     const hashedPassword = await bcrypt.hash('testpassword', 10);
-    const [userId] = await knex('users').insert({
+    const userId = await createTestUser(knex, {
       name: 'testuser_eds',
       position: 'Тестировщик',
       password: hashedPassword,

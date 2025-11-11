@@ -25,6 +25,29 @@ exports.isNotAuthenticated = (req, res, next) => {
         // Пользователь не авторизован, разрешаем доступ (например, к странице входа)
         return next();
     }
+    
+    // Проверяем статус пользователя
+    if (req.session.user.status === 'pending') {
+        // Пользователь со статусом pending идет на страницу ожидания
+        return res.redirect('/pending-approval');
+    }
+    
     // Пользователь уже вошел в систему, отправляем его на дашборд
     res.redirect('/dashboard');
+};
+
+/**
+ * Middleware для проверки статуса пользователя.
+ * Если статус 'pending', перенаправляет на страницу ожидания.
+ */
+exports.checkUserStatus = (req, res, next) => {
+    if (req.session.user && req.session.user.status === 'pending') {
+        // Разрешаем доступ только к странице ожидания и logout
+        if (req.path === '/pending-approval' || req.path === '/logout') {
+            return next();
+        }
+        // Для всех остальных страниц перенаправляем на страницу ожидания
+        return res.redirect('/pending-approval');
+    }
+    next();
 };

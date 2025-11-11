@@ -4,7 +4,7 @@
 
 const express = require('express');
 const path = require('path');
-const { isAuthenticated, isNotAuthenticated } = require('../middleware/authMiddleware');
+const { isAuthenticated, isNotAuthenticated, checkUserStatus } = require('../middleware/authMiddleware');
 const authController = require('../controllers/authController');
 const router = express.Router();
 
@@ -36,33 +36,48 @@ router.post('/logout', authController.logout);
 
 // --- Защищенные маршруты (требуют аутентификации) ---
 
+// Страница ограничения доступа
+router.get('/access-denied', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'views', 'access-denied.html'));
+});
+
+// Страница отклонения регистрации
+router.get('/registration-rejected', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'views', 'registration-rejected.html'));
+});
+
+// Страница ожидания подтверждения
+router.get('/pending-approval', isAuthenticated, (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'views', 'pending-approval.html'));
+});
+
 // Главный дашборд
-router.get('/dashboard', isAuthenticated, (req, res) => {
+router.get('/dashboard', isAuthenticated, checkUserStatus, (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'views', 'dashboard.html'));
 });
 
 // Панель администратора
-router.get('/admin', isAuthenticated, (req, res) => {
+router.get('/admin', isAuthenticated, checkUserStatus, (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'views', 'admin.html'));
 });
 
 // График командировок
-router.get('/trips', isAuthenticated, (req, res) => {
+router.get('/trips', isAuthenticated, checkUserStatus, (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'views', 'trips.html'));
 });
 
 // Страница ТО
-router.get('/maintenance', isAuthenticated, (req, res) => {
+router.get('/maintenance', isAuthenticated, checkUserStatus, (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'views', 'maintenance.html'));
 });
 
 // Страница ЭЦП
-router.get('/eds', isAuthenticated, (req, res) => {
+router.get('/eds', isAuthenticated, checkUserStatus, (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'views', 'eds.html'));
 });
 
 // График Поверки
-router.get('/verification', isAuthenticated, (req, res) => {
+router.get('/verification', isAuthenticated, checkUserStatus, (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'views', 'verification.html'));
 });
 
@@ -84,12 +99,12 @@ const isSuperAdmin = async (req, res, next) => {
 };
 
 // Админ-панель управления пользователями (только для суперадминов)
-router.get('/admin-panel', isAuthenticated, isSuperAdmin, (req, res) => {
+router.get('/admin-panel', isAuthenticated, checkUserStatus, isSuperAdmin, (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'views', 'admin-panel.html'));
 });
 
     // Справочная информация
-    router.get('/help', isAuthenticated, (req, res) => {
+    router.get('/help', isAuthenticated, checkUserStatus, (req, res) => {
         res.sendFile(path.join(__dirname, '..', 'views', 'help.html'));
     });
 

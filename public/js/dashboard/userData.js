@@ -2,6 +2,8 @@
 // File: public/js/dashboard/userData.js (ПОЛНАЯ ИСПРАВЛЕННАЯ ВЕРСИЯ)
 // ===================================================================
 
+import { handleApiError } from '../utils/api-error-handler.js';
+
 function getInitials(fullName) {
     if (!fullName || typeof fullName !== 'string') return '--';
     const parts = fullName.trim().split(' ');
@@ -46,13 +48,15 @@ export async function fetchUserData() {
             credentials: 'include'
         });
         
-        if (!response.ok) {
-            // Если сессия невалидна, перенаправляем на страницу входа
-            window.location.href = '/';
-            return;
+        // Используем общую обработку ошибок
+        if (handleApiError(response, 'fetchUserData')) {
+            return; // Функция уже выполнила перенаправление
         }
         
         const user = await response.json();
+
+        // Сохраняем роль пользователя глобально для других скриптов
+        window.currentUserRole = user.role;
 
         // Безопасно обновляем элементы, проверяя их наличие
         const userNameEl = document.querySelector('.user-name');
@@ -68,28 +72,6 @@ export async function fetchUserData() {
         if (greetingEl) {
             const firstName = getFirstName(user.name);
             greetingEl.textContent = `${getGreeting()}, ${firstName}!`;
-        }
-        
-        // Показываем/скрываем элемент dropdown для суперадминов
-        const userProfileWrapper = document.querySelector('.user-profile-wrapper');
-        const userDropdown = document.getElementById('userDropdown');
-        
-        if (user.role === 'superadmin') {
-            // Для суперадминов показываем dropdown
-            if (userDropdown) {
-                userDropdown.style.pointerEvents = 'auto';
-            }
-        } else {
-            // Для остальных скрываем полностью
-            if (userDropdown) {
-                userDropdown.style.display = 'none';
-                userDropdown.style.pointerEvents = 'none';
-            }
-            // Убираем курсор pointer с профиля
-            const userProfile = document.getElementById('userProfileToggle');
-            if (userProfile) {
-                userProfile.style.cursor = 'default';
-            }
         }
 
     } catch (error) {

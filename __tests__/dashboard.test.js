@@ -5,6 +5,7 @@
 
 const request = require('supertest');
 const bcrypt = require('bcrypt');
+const { createTestUser } = require('./helpers/testHelpers');
 
 // Мокаем event-emitter перед импортом сервера
 jest.mock('../event-emitter', () => ({
@@ -31,7 +32,7 @@ describe('Интеграционные тесты для дашборда (/api/
 
     // Создаем тестового пользователя
     const hashedPassword = await bcrypt.hash('testpassword', 10);
-    const [userId] = await knex('users').insert({
+    const userId = await createTestUser(knex, {
       name: 'testuser_dashboard',
       position: 'Администратор',
       password: hashedPassword,
@@ -358,6 +359,7 @@ describe('Интеграционные тесты для дашборда (/api/
       
       const [tripId] = await knex('trips').insert({
         organizationId: organizationId,
+        employeeId: employeeId, // Добавляем employeeId для подсчёта активных сотрудников
         startDate: today.toISOString().split('T')[0],
         endDate: tomorrow.toISOString().split('T')[0],
         destination: 'Комплексный город',

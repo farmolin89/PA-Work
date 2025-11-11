@@ -16,6 +16,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const registerFormData = document.getElementById('register-form-data');
     const forgotFormData = document.getElementById('forgot-form-data');
 
+    // Проверяем URL параметры
+    const urlParams = new URLSearchParams(window.location.search);
+    const shouldShowRegister = urlParams.get('register');
+
     // --- ФУНКЦИЯ СКРЫТИЯ ВСЕХ КАСТОМНЫХ СООБЩЕНИЙ ---
     function hideAllCustomMessages() {
         // Скрываем ВСЕ кастомные сообщения на странице
@@ -103,6 +107,11 @@ document.addEventListener('DOMContentLoaded', () => {
         showForm('login');
     });
 
+    // Если есть параметр register=true, показываем форму регистрации
+    if (shouldShowRegister === 'true') {
+        showForm('register');
+    }
+
     // Обработчики переключения видимости пароля
     document.querySelectorAll('.toggle-password').forEach(button => {
         button.addEventListener('click', () => {
@@ -139,9 +148,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 const result = await response.json();
                 toast.success(result.message);
                 
-                setTimeout(() => {
-                    window.location.href = '/dashboard';
-                }, 1000);
+                // Проверяем статус пользователя для определения страницы перенаправления
+                try {
+                    const userResponse = await fetch('/api/current-user', {
+                        credentials: 'include'
+                    });
+                    
+                    if (userResponse.ok) {
+                        const user = await userResponse.json();
+                        
+                        setTimeout(() => {
+                            if (user.status === 'pending') {
+                                window.location.href = '/pending-approval';
+                            } else {
+                                window.location.href = '/dashboard';
+                            }
+                        }, 1000);
+                    } else {
+                        // Если не удалось получить данные пользователя, перенаправляем на dashboard
+                        setTimeout(() => {
+                            window.location.href = '/dashboard';
+                        }, 1000);
+                    }
+                } catch (error) {
+                    console.error('Ошибка получения данных пользователя:', error);
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 1000);
+                }
 
             } catch (err) {
                 console.error('Ошибка сети при входе:', err);

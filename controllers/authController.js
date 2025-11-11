@@ -18,9 +18,16 @@ exports.register = async (req, res, next) => {
         }
         
         const hashedPassword = await bcrypt.hash(password, saltRounds);
-        await knex('users').insert({ name, position, password: hashedPassword });
+        await knex('users').insert({ 
+            name, 
+            position, 
+            password: hashedPassword,
+            registrationDate: new Date().toISOString(),
+            role: 'user',
+            status: 'pending' // Новый пользователь ожидает подтверждения
+        });
         
-        res.status(201).json({ message: 'Регистрация прошла успешно!' });
+        res.status(201).json({ message: 'Регистрация прошла успешно! Ожидайте подтверждения администратора.' });
     } catch (error) {
         console.error("Ошибка при регистрации:", error);
         next(error);
@@ -36,12 +43,24 @@ exports.login = async (req, res, next) => {
             return res.status(401).json({ errors: [{ message: 'Неверное ФИО или пароль.' }] });
         }
 
+        // Проверка статуса пользователя (только отклоненные не могут войти)
+        if (user.status === 'rejected') {
+            return res.status(403).json({ errors: [{ message: 'Ваша регистрация была отклонена.' }] });
+        }
+
         const passwordMatch = await bcrypt.compare(password, user.password);
         if (!passwordMatch) {
             return res.status(401).json({ errors: [{ message: 'Неверное ФИО или пароль.' }] });
         }
         
-        req.session.user = { id: user.id, name: user.name, position: user.position };
+        // Сохраняем пользователя в сессии, включая статус
+        req.session.user = { 
+            id: user.id, 
+            name: user.name, 
+            position: user.position,
+            role: user.role || 'user',
+            status: user.status || 'active'
+        };
 
         // ========================================================
         // +++ КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ +++
@@ -123,18 +142,25 @@ exports.resetPassword = async (req, res, next) => {
 exports.getCurrentUser = async (req, res) => {
     try {
         if (req.session.user) {
-            // Получаем актуальные данные пользователя из БД, включая роль
+            // Получаем актуальные данные пользователя из БД, включая роль и статус
             const user = await knex('users')
                 .where('id', req.session.user.id)
-                .select('id', 'name', 'position', 'role')
+                .select('id', 'name', 'position', 'role', 'status')
                 .first();
             
             if (user) {
                 // Обновляем данные в сессии
-                req.session.user = user;
+                req.session.user = {
+                    id: user.id,
+                    name: user.name,
+                    position: user.position,
+                    role: user.role,
+                    status: user.status
+                };
                 res.json(user);
             } else {
-                res.status(401).json({ errors: [{ message: 'Пользователь не найден' }] });
+                // Пользователь удален из БД - возвращаем 404
+                res.status(404).json({ errors: [{ message: 'Пользователь не найден' }] });
             }
         } else {
             res.status(401).json({ errors: [{ message: 'Пользователь не авторизован' }] });
@@ -162,7 +188,7 @@ exports.logout = (req, res) => {
 exports.getAllUsers = async (req, res, next) => {
     try {
         const users = await knex('users')
-            .select('id', 'name', 'position', 'role', 'registrationDate')
+            .select('id', 'name', 'position', 'role', 'registrationDate', 'status')
             .orderBy('id', 'desc');
         
         res.json(users);
@@ -179,12 +205,19 @@ exports.getAdminStats = async (req, res, next) => {
         const totalUsersResult = await knex('users').count('* as count').first();
         const totalUsers = totalUsersResult.count || 0;
         
-        // Активные пользователи (которые хотя бы раз входили в систему)
-        // Можно улучшить, добавив таблицу sessions или поле last_login
-        const activeUsers = totalUsers; // Пока считаем всех пользователей активными
+        // Активные пользователи
+        const activeUsersResult = await knex('users')
+            .where('status', 'active')
+            .count('* as count')
+            .first();
+        const activeUsers = activeUsersResult.count || 0;
         
-        // Ожидающие подтверждения (если будет функционал регистрации с подтверждением)
-        const pendingUsers = 0;
+        // Ожидающие подтверждения
+        const pendingUsersResult = await knex('users')
+            .where('status', 'pending')
+            .count('* as count')
+            .first();
+        const pendingUsers = pendingUsersResult.count || 0;
         
         // События безопасности (можно подсчитать из логов или специальной таблицы)
         // Например: неудачные попытки входа, сброс паролей и т.д.
@@ -282,6 +315,74 @@ exports.updateUserRole = async (req, res, next) => {
         res.json({ message: 'Роль пользователя успешно обновлена', role });
     } catch (error) {
         console.error("Ошибка при обновлении роли:", error);
+        next(error);
+    }
+};
+
+// --- ПОДТВЕРЖДЕНИЕ РЕГИСТРАЦИИ ---
+exports.approveUser = async (req, res, next) => {
+    try {
+        const userId = parseInt(req.params.id);
+        const currentUser = req.session.user;
+        
+        if (!currentUser) {
+            return res.status(401).json({ message: 'Необходима авторизация' });
+        }
+        
+        // Проверяем, что пользователь является суперадмином
+        const user = await knex('users').where('id', currentUser.id).first();
+        if (!user || user.role !== 'superadmin') {
+            return res.status(403).json({ 
+                message: 'Доступ запрещен. Только супер-администраторы могут подтверждать регистрацию.' 
+            });
+        }
+        
+        // Обновляем статус на active
+        const updated = await knex('users')
+            .where('id', userId)
+            .update({ status: 'active' });
+        
+        if (updated === 0) {
+            return res.status(404).json({ message: 'Пользователь не найден.' });
+        }
+        
+        res.json({ message: 'Регистрация пользователя подтверждена' });
+    } catch (error) {
+        console.error("Ошибка при подтверждении регистрации:", error);
+        next(error);
+    }
+};
+
+// --- ОТКЛОНЕНИЕ РЕГИСТРАЦИИ ---
+exports.rejectUser = async (req, res, next) => {
+    try {
+        const userId = parseInt(req.params.id);
+        const currentUser = req.session.user;
+        
+        if (!currentUser) {
+            return res.status(401).json({ message: 'Необходима авторизация' });
+        }
+        
+        // Проверяем, что пользователь является суперадмином
+        const user = await knex('users').where('id', currentUser.id).first();
+        if (!user || user.role !== 'superadmin') {
+            return res.status(403).json({ 
+                message: 'Доступ запрещен. Только супер-администраторы могут отклонять регистрацию.' 
+            });
+        }
+        
+        // Удаляем пользователя
+        const deleted = await knex('users')
+            .where('id', userId)
+            .delete();
+        
+        if (deleted === 0) {
+            return res.status(404).json({ message: 'Пользователь не найден.' });
+        }
+        
+        res.json({ message: 'Регистрация пользователя отклонена' });
+    } catch (error) {
+        console.error("Ошибка при отклонении регистрации:", error);
         next(error);
     }
 };

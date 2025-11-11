@@ -13,6 +13,103 @@ let usersData = {
     users: []
 };
 
+// Состояние сортировки для каждой таблицы и колонки
+let sortState = {
+    table1: {},  // Главная таблица
+    table2: {}   // Таблица во вкладке "Пользователи"
+};
+
+/**
+ * Сортировка данных
+ * @param {string} tableId - ID таблицы
+ * @param {number} columnIndex - Индекс колонки
+ * @param {string} columnKey - Ключ данных (name, position, date, status, role)
+ */
+function sortTable(tableId, columnIndex, columnKey) {
+    const currentState = sortState[tableId][columnKey] || 'none';
+    let nextState;
+    
+    // Цикл: none -> asc -> desc -> none
+    if (currentState === 'none') {
+        nextState = 'asc';
+    } else if (currentState === 'asc') {
+        nextState = 'desc';
+    } else {
+        nextState = 'none';
+    }
+    
+    // Обновляем состояние
+    sortState[tableId][columnKey] = nextState;
+    
+    // Сортируем данные
+    if (nextState === 'none') {
+        // Возвращаем исходный порядок (по ID)
+        usersData.users.sort((a, b) => b.id - a.id);
+    } else {
+        usersData.users.sort((a, b) => {
+            let aVal = a[columnKey];
+            let bVal = b[columnKey];
+            
+            // Для дат преобразуем в Date объекты
+            if (columnKey === 'date') {
+                const parseDate = (dateStr) => {
+                    if (dateStr === '-') return new Date(0);
+                    const parts = dateStr.split('.');
+                    return new Date(parts[2], parts[1] - 1, parts[0]);
+                };
+                aVal = parseDate(aVal);
+                bVal = parseDate(bVal);
+            }
+            
+            // Сравнение
+            if (aVal < bVal) return nextState === 'asc' ? -1 : 1;
+            if (aVal > bVal) return nextState === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }
+    
+    // Обновляем иконки сортировки
+    updateSortIcons(tableId, columnIndex, nextState);
+    
+    // Перерисовываем таблицу
+    renderUsersTable();
+}
+
+/**
+ * Обновление иконок сортировки
+ */
+function updateSortIcons(tableId, columnIndex, state) {
+    const table = document.getElementById(tableId === 'table1' ? 'usersTableBody' : 'usersTableBody2').closest('table');
+    const headers = table.querySelectorAll('th');
+    const header = headers[columnIndex];
+    
+    if (!header) return;
+    
+    // Удаляем все иконки из других заголовков
+    headers.forEach(h => {
+        const icon = h.querySelector('.sort-icon');
+        if (icon) icon.remove();
+    });
+    
+    // Добавляем иконку к текущему заголовку
+    let icon = header.querySelector('.sort-icon');
+    if (!icon) {
+        icon = document.createElement('i');
+        icon.className = 'fas sort-icon';
+        header.style.cursor = 'pointer';
+        header.appendChild(icon);
+    }
+    
+    // Устанавливаем класс иконки в зависимости от состояния
+    if (state === 'asc') {
+        icon.className = 'fas fa-sort-up sort-icon';
+    } else if (state === 'desc') {
+        icon.className = 'fas fa-sort-down sort-icon';
+    } else {
+        icon.remove();
+    }
+}
+
 /**
  * Загрузка данных пользователей с сервера
  */
@@ -40,7 +137,7 @@ async function loadUsersFromServer() {
                 position: user.position,
                 email: '-', // Пока нет email в БД
                 date: formattedDate,
-                status: 'active',
+                status: user.status || 'active',
                 role: user.role || 'user'
             };
         });
@@ -244,11 +341,28 @@ function addUserToTable(user, tableBody) {
         roleClass = 'role-superadmin';
     }
     
-    // Проверяем, является ли текущий пользователь суперадмином
+    // Определяем статус пользователя
+    let statusBadge = '<span class="status status-success">Активен</span>';
+    let actionButtons = '';
+    
     const currentUserRole = window.currentUserRole || 'user';
-    const deleteButton = currentUserRole === 'superadmin' 
-        ? `<button class="action-btn delete-btn" onclick="deleteUser(this)" title="Удалить"><i class="fas fa-trash"></i></button>`
-        : '';
+    
+    if (user.status === 'pending') {
+        statusBadge = '<span class="status status-pending">Ожидает подтверждения</span>';
+        if (currentUserRole === 'superadmin') {
+            actionButtons = `
+                <button class="action-btn approve-btn" onclick="approveUser(this)" title="Подтвердить"><i class="fas fa-check"></i></button>
+                <button class="action-btn reject-btn" onclick="rejectUser(this)" title="Отклонить"><i class="fas fa-times"></i></button>
+            `;
+        }
+    } else if (user.status === 'active') {
+        statusBadge = '<span class="status status-success">Активен</span>';
+        if (currentUserRole === 'superadmin') {
+            actionButtons = `<button class="action-btn delete-btn" onclick="deleteUser(this)" title="Удалить"><i class="fas fa-trash"></i></button>`;
+        }
+    } else if (user.status === 'rejected') {
+        statusBadge = '<span class="status status-error">Отклонен</span>';
+    }
     
     newRow.innerHTML = `
         <td>
@@ -259,13 +373,13 @@ function addUserToTable(user, tableBody) {
         </td>
         <td>${user.position || '-'}</td>
         <td>${user.date}</td>
-        <td><span class="status status-success">Активен</span></td>
+        <td>${statusBadge}</td>
         <td><span class="role-badge ${roleClass}" data-role="${user.role}"><i class="fas ${roleIcon}"></i> ${roleText}</span></td>
-        <td>${deleteButton}</td>
+        <td>${actionButtons}</td>
     `;
     
-    // Добавляем обработчик клика для суперадминов
-    if (currentUserRole === 'superadmin') {
+    // Добавляем обработчик клика для суперадминов только на активных пользователей
+    if (currentUserRole === 'superadmin' && user.status === 'active') {
         newRow.style.cursor = 'pointer';
         newRow.addEventListener('click', function(e) {
             // Игнорируем клики на кнопки действий
@@ -282,13 +396,28 @@ function addUserToTable(user, tableBody) {
 /**
  * Открытие модального окна назначения роли
  */
-function showRoleModal(row) {
+function showRoleModal(element) {
+    // Получаем строку таблицы
+    const row = element.closest('tr');
+    
+    if (!row) {
+        console.error('Row not found!');
+        return;
+    }
+    
     currentUserRow = row;
     const userId = parseInt(row.dataset.id);
-    const userName = row.cells[0].querySelector('.user span').textContent;
-    const currentRole = row.querySelector('.role-badge').dataset.role || 'user';
     
-    document.getElementById('userName').value = userName;
+    // Получаем имя пользователя из span внутри div.user
+    const userSpan = row.cells[0]?.querySelector('.user span');
+    const userName = userSpan?.textContent || row.cells[0]?.textContent.trim() || 'Имя не найдено';
+    const currentRole = row.querySelector('.role-badge')?.dataset.role || 'user';
+    
+    // Используем уникальный ID для поля в модальном окне
+    const userNameInput = document.getElementById('modalUserName');
+    if (userNameInput) {
+        userNameInput.value = userName;
+    }
     
     // Выбираем текущую роль пользователя
     document.querySelectorAll('.role-option').forEach(option => {
@@ -418,16 +547,24 @@ async function renderUsersTable() {
     const tableBody1 = document.getElementById('usersTableBody');
     const tableBody2 = document.getElementById('usersTableBody2');
     
-    tableBody1.innerHTML = '';
-    tableBody2.innerHTML = '';
-    
-    // Загружаем пользователей с сервера
+    // Загружаем пользователей с сервера ПЕРЕД очисткой таблицы
     await loadUsersFromServer();
     
+    // Создаем временные фрагменты для минимизации перерисовки
+    const fragment1 = document.createDocumentFragment();
+    const fragment2 = document.createDocumentFragment();
+    
     usersData.users.forEach(user => {
-        addUserToTable(user, tableBody1);
-        addUserToTable(user, tableBody2);
+        addUserToTable(user, fragment1);
+        addUserToTable(user, fragment2);
     });
+    
+    // Очищаем и заполняем таблицы одной операцией
+    tableBody1.innerHTML = '';
+    tableBody1.appendChild(fragment1);
+    
+    tableBody2.innerHTML = '';
+    tableBody2.appendChild(fragment2);
 }
 
 /**
@@ -441,6 +578,13 @@ document.addEventListener('DOMContentLoaded', async function() {
     await loadStatsFromServer();
     await renderUsersTable();
     updateStats();
+    
+    // Автоматическое обновление данных каждые 5 секунд
+    setInterval(async () => {
+        await loadStatsFromServer();
+        await renderUsersTable();
+        updateStats();
+    }, 5000);
     
     // Навигация по разделам
     document.querySelectorAll('.nav-links a').forEach(link => {
@@ -486,10 +630,21 @@ async function deleteUser(button) {
     }
     
     try {
+        // Получаем CSRF токен
+        let csrfToken = document.cookie.split('; ').find(row => row.startsWith('_csrf='))?.split('=')[1];
+        if (!csrfToken) {
+            const csrfResponse = await fetch('/api/csrf-token', { credentials: 'include' });
+            if (csrfResponse.ok) {
+                csrfToken = (await csrfResponse.json())?.csrfToken;
+            }
+        }
+        
         const response = await fetch(`/api/admin/users/${userId}`, {
             method: 'DELETE',
+            credentials: 'include',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'x-csrf-token': csrfToken
             }
         });
         
@@ -516,5 +671,120 @@ async function deleteUser(button) {
     } catch (error) {
         console.error('Ошибка при удалении пользователя:', error);
         showNotification(error.message || 'Ошибка при удалении пользователя', 'error');
+    }
+}
+
+// --- ПОДТВЕРЖДЕНИЕ РЕГИСТРАЦИИ ---
+async function approveUser(button) {
+    const row = button.closest('tr');
+    const userId = parseInt(row.dataset.id);
+    const userName = row.querySelector('.user span').textContent;
+    
+    if (!confirm(`Подтвердить регистрацию пользователя "${userName}"?`)) {
+        return;
+    }
+    
+    try {
+        // Получаем CSRF токен
+        let csrfToken = document.cookie.split('; ').find(row => row.startsWith('_csrf='))?.split('=')[1];
+        if (!csrfToken) {
+            const csrfResponse = await fetch('/api/csrf-token', { credentials: 'include' });
+            if (csrfResponse.ok) {
+                csrfToken = (await csrfResponse.json())?.csrfToken;
+            }
+        }
+        
+        const response = await fetch(`/api/admin/users/${userId}/approve`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-csrf-token': csrfToken
+            },
+            body: JSON.stringify({
+                _csrf: csrfToken
+            })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Ошибка подтверждения регистрации');
+        }
+        
+        // Обновляем статус в массиве данных
+        const user = usersData.users.find(u => u.id === userId);
+        if (user) {
+            user.status = 'active';
+        }
+        
+        // Обновляем статистику
+        await loadStatsFromServer();
+        updateStats();
+        
+        // Перерисовываем таблицы
+        await renderUsersTable();
+        
+        showNotification('Регистрация пользователя подтверждена');
+    } catch (error) {
+        console.error('Ошибка при подтверждении регистрации:', error);
+        showNotification(error.message || 'Ошибка при подтверждении регистрации', 'error');
+    }
+}
+
+// --- ОТКЛОНЕНИЕ РЕГИСТРАЦИИ ---
+async function rejectUser(button) {
+    const row = button.closest('tr');
+    const userId = parseInt(row.dataset.id);
+    const userName = row.querySelector('.user span').textContent;
+    
+    if (!confirm(`Отклонить регистрацию пользователя "${userName}"? Пользователь будет удален из системы.`)) {
+        return;
+    }
+    
+    try {
+        // Получаем CSRF токен
+        let csrfToken = document.cookie.split('; ').find(row => row.startsWith('_csrf='))?.split('=')[1];
+        if (!csrfToken) {
+            const csrfResponse = await fetch('/api/csrf-token', { credentials: 'include' });
+            if (csrfResponse.ok) {
+                csrfToken = (await csrfResponse.json())?.csrfToken;
+            }
+        }
+        
+        const response = await fetch(`/api/admin/users/${userId}/reject`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-csrf-token': csrfToken
+            },
+            body: JSON.stringify({
+                _csrf: csrfToken
+            })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Ошибка отклонения регистрации');
+        }
+        
+        // Удаляем из массива данных
+        const userIndex = usersData.users.findIndex(u => u.id === userId);
+        if (userIndex !== -1) {
+            usersData.users.splice(userIndex, 1);
+            usersData.totalUsers--;
+        }
+        
+        // Обновляем статистику
+        await loadStatsFromServer();
+        updateStats();
+        
+        // Перерисовываем таблицы
+        await renderUsersTable();
+        
+        showNotification('Регистрация пользователя отклонена');
+    } catch (error) {
+        console.error('Ошибка при отклонении регистрации:', error);
+        showNotification(error.message || 'Ошибка при отклонении регистрации', 'error');
     }
 }

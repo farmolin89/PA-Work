@@ -127,9 +127,6 @@ const getAll = async (filters = {}) => {
  */
 const create = async (tripData) => {
     const { participants, ...tripDetails } = tripData;
-    
-    console.log('tripService.create - participants:', participants);
-    console.log('tripService.create - tripDetails:', tripDetails);
 
     if (!participants || participants.length === 0) {
         // Нет участников - создаем одну запись без employeeId

@@ -38,13 +38,14 @@
                 </div>
             </div>
             <div class="user-actions">
-                <div class="user-profile-wrapper">
-                    <div class="user-profile" id="userProfileToggle">
+                <div class="user-profile-wrapper" id="userProfileToggle">
+                    <div class="user-profile">
                         <div class="user-avatar">--</div>
                         <div class="user-info">
                             <span class="user-name">Загрузка...</span>
                             <span class="user-role">...</span>
                         </div>
+                        <i class="fas fa-chevron-down dropdown-arrow"></i>
                     </div>
                     <!-- Выпадающее меню пользователя -->
                     <div class="user-dropdown" id="userDropdown">
@@ -309,23 +310,53 @@
     <script src="/js/utils/global-toaster.js"></script>
     <script type="module" src="/js/dashboard/dashboard.js"></script>
     <script>
-        // Управление выпадающим меню пользователя
+        // Управление выпадающим меню пользователя (только для супер-админов)
         document.addEventListener('DOMContentLoaded', function() {
-            const userProfile = document.getElementById('userProfileToggle');
+            const userProfileWrapper = document.getElementById('userProfileToggle');
             const userDropdown = document.getElementById('userDropdown');
             
-            if (userProfile && userDropdown) {
-                userProfile.addEventListener('click', function(e) {
+            if (userProfileWrapper && userDropdown) {
+                // Добавляем обработчик для проверки роли при клике
+                userProfileWrapper.addEventListener('click', function(e) {
+                    // Проверяем роль пользователя
+                    const userRole = window.currentUserRole;
+                    
+                    // Разрешаем открытие только для супер-админов
+                    if (userRole !== 'superadmin') {
+                        return; // Ничего не делаем для обычных пользователей и админов
+                    }
+                    
                     e.stopPropagation();
                     userDropdown.classList.toggle('active');
+                    userProfileWrapper.classList.toggle('active');
                 });
                 
                 // Закрытие меню при клике вне его
                 document.addEventListener('click', function(e) {
-                    if (!userDropdown.contains(e.target) && !userProfile.contains(e.target)) {
+                    if (!userProfileWrapper.contains(e.target)) {
                         userDropdown.classList.remove('active');
+                        userProfileWrapper.classList.remove('active');
                     }
                 });
+                
+                // Отслеживаем изменение роли и обновляем стили
+                const checkRoleAndUpdateStyles = () => {
+                    const userRole = window.currentUserRole;
+                    if (userRole && userRole !== 'superadmin') {
+                        userProfileWrapper.classList.add('non-interactive');
+                    } else if (userRole === 'superadmin') {
+                        userProfileWrapper.classList.remove('non-interactive');
+                    }
+                };
+                
+                // Проверяем роль сразу и периодически
+                checkRoleAndUpdateStyles();
+                const intervalId = setInterval(() => {
+                    if (window.currentUserRole) {
+                        checkRoleAndUpdateStyles();
+                        clearInterval(intervalId);
+                    }
+                }, 100);
             }
         });
     </script>

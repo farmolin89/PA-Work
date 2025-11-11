@@ -377,10 +377,60 @@ table {
     border-collapse: collapse;
 }
 
+th {
+    position: relative;
+    user-select: none;
+}
+
+th:not(:last-child) {
+    cursor: pointer;
+}
+
+th:not(:last-child):hover {
+    background: rgba(102, 126, 234, 0.05);
+}
+
+.sort-icon {
+    margin-left: 8px;
+    font-size: 0.8em;
+    color: var(--primary-blue);
+}
+
 th, td {
     padding: 12px 15px;
     text-align: left;
     border-bottom: 1px solid var(--border-color);
+}
+
+/* Настройка ширины столбцов */
+th:nth-child(1), td:nth-child(1) { /* Пользователь */
+    width: 25%;
+    text-align: left;
+}
+
+th:nth-child(2), td:nth-child(2) { /* Должность */
+    width: 20%;
+    text-align: center;
+}
+
+th:nth-child(3), td:nth-child(3) { /* Дата регистрации */
+    width: 12%;
+    text-align: center;
+}
+
+th:nth-child(4), td:nth-child(4) { /* Статус */
+    width: 13%;
+    text-align: center;
+}
+
+th:nth-child(5), td:nth-child(5) { /* Роль */
+    width: 18%;
+    text-align: center;
+}
+
+th:nth-child(6), td:nth-child(6) { /* Действия */
+    width: 12%;
+    text-align: center;
 }
 
 th {
@@ -416,6 +466,16 @@ tr:hover {
     color: var(--error-color);
 }
 
+.status-pending {
+    background: rgba(245, 158, 11, 0.2);
+    color: var(--warning-color);
+}
+
+.status-error {
+    background: rgba(239, 68, 68, 0.2);
+    color: var(--error-color);
+}
+
 .user {
     display: flex;
     align-items: center;
@@ -423,8 +483,10 @@ tr:hover {
 }
 
 .user-avatar-small {
-    width: 30px;
-    height: 30px;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
     border-radius: 50%;
     background: var(--gradient-3);
     display: flex;
@@ -433,6 +495,7 @@ tr:hover {
     color: white;
     font-size: 12px;
     font-weight: bold;
+    flex-shrink: 0;
 }
 
 /* === КНОПКИ === */
@@ -686,6 +749,24 @@ input:focus, select:focus {
 }
 
 .delete-btn:hover {
+    background: rgba(239, 68, 68, 0.1);
+    transform: scale(1.1);
+}
+
+.approve-btn {
+    color: #10b981;
+}
+
+.approve-btn:hover {
+    background: rgba(16, 185, 129, 0.1);
+    transform: scale(1.1);
+}
+
+.reject-btn {
+    color: #ef4444;
+}
+
+.reject-btn:hover {
     background: rgba(239, 68, 68, 0.1);
     transform: scale(1.1);
 }

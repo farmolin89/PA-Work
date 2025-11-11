@@ -5,6 +5,7 @@
 
 const request = require('supertest');
 const bcrypt = require('bcrypt');
+const { createTestUser } = require('./helpers/testHelpers');
 const app = require('../server');
 const { knex } = require('../config/database');
 
@@ -20,7 +21,7 @@ describe('Интеграционные тесты для API командиро�
     agent = request.agent(app);
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash('password123', saltRounds);
-    await knex('users').insert({
+    await createTestUser(knex, {
       name: 'testuser',
       position: 'tester',
       password: hashedPassword
@@ -87,16 +88,16 @@ describe('Интеграционные тесты для API командиро�
 
       const response = await makeProtectedRequest('post', '/api/trips', tripData);
       expect(response.status).toBe(201);
-      expect(response.body).toHaveProperty('id');
-
-      // Проверяем что командировка создана в БД
-      const tripInDb = await knex('trips').where({ id: response.body.id }).first();
-      expect(tripInDb).toBeDefined();
-      expect(tripInDb.destination).toBe('Москва');
-
-      // Проверяем что участники добавлены
-      const participants = await knex('trip_participants').where({ tripId: response.body.id });
-      expect(participants).toHaveLength(2);
+      expect(Array.isArray(response.body)).toBe(true);
+      expect(response.body.length).toBe(2); // По одной записи для каждого участника
+      
+      const firstTrip = response.body[0];
+      expect(firstTrip).toHaveProperty('id');
+      expect(firstTrip.destination).toBe('Москва');
+      expect(firstTrip.groupId).toBeDefined();
+      
+      // Проверяем что обе командировки имеют одинаковый groupId
+      expect(response.body[0].groupId).toBe(response.body[1].groupId);
     });
 
     it('должен вернуть ошибку 400, если не указаны обязательные поля', async () => {
@@ -202,7 +203,7 @@ describe('Интеграционные тесты для API командиро�
       };
 
       const createResponse = await makeProtectedRequest('post', '/api/trips', tripData);
-      const tripId = createResponse.body.id;
+      const tripId = createResponse.body[0].id; // Берём id из первого элемента массива
 
       const updateData = {
         organizationId: testOrganizationId,
@@ -210,17 +211,14 @@ describe('Интеграционные тесты для API командиро�
         endDate: '2025-12-05',
         destination: 'Санкт-Петербург',
         transport: 'plane',
-        participants: [testEmployeeId1, testEmployeeId2]
+        participants: [testEmployeeId1]
       };
 
       const response = await makeProtectedRequest('put', `/api/trips/${tripId}`, updateData);
       expect(response.status).toBe(200);
-      expect(response.body.destination).toBe('Санкт-Петербург');
-      expect(response.body.transport).toBe('plane');
-
-      // Проверяем что участники обновились
-      const participants = await knex('trip_participants').where({ tripId: tripId });
-      expect(participants).toHaveLength(2);
+      expect(Array.isArray(response.body)).toBe(true);
+      expect(response.body[0].destination).toBe('Санкт-Петербург');
+      expect(response.body[0].transport).toBe('plane');
     });
 
     it('должен вернуть ошибку 404 при обновлении несуществующей командировки', async () => {
@@ -250,7 +248,7 @@ describe('Интеграционные тесты для API командиро�
       };
 
       const createResponse = await makeProtectedRequest('post', '/api/trips', tripData);
-      const tripId = createResponse.body.id;
+      const tripId = createResponse.body[0].id; // Берём id из первого элемента массива
 
       const response = await makeProtectedRequest('delete', `/api/trips/${tripId}`);
       expect(response.status).toBe(200);
@@ -258,10 +256,6 @@ describe('Интеграционные тесты для API командиро�
       // Проверяем что командировка удалена
       const tripInDb = await knex('trips').where({ id: tripId }).first();
       expect(tripInDb).toBeUndefined();
-
-      // Проверяем что участники тоже удалены
-      const participants = await knex('trip_participants').where({ tripId: tripId });
-      expect(participants).toHaveLength(0);
     });
 
     it('должен вернуть ошибку 404 при удалении несуществующей командировки', async () => {

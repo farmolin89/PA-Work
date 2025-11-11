@@ -121,11 +121,11 @@
                                     <table>
                                         <thead>
                                             <tr>
-                                                <th>Пользователь</th>
-                                                <th>Должность</th>
-                                                <th>Дата регистрации</th>
-                                                <th>Статус</th>
-                                                <th>Роль</th>
+                                                <th onclick="sortTable('table1', 0, 'name')">Пользователь</th>
+                                                <th onclick="sortTable('table1', 1, 'position')">Должность</th>
+                                                <th onclick="sortTable('table1', 2, 'date')">Дата регистрации</th>
+                                                <th onclick="sortTable('table1', 3, 'status')">Статус</th>
+                                                <th onclick="sortTable('table1', 4, 'role')">Роль</th>
                                                 <th>Действия</th>
                                             </tr>
                                         </thead>
@@ -164,11 +164,11 @@
                                 <table>
                                     <thead>
                                         <tr>
-                                            <th>Пользователь</th>
-                                            <th>Должность</th>
-                                            <th>Дата регистрации</th>
-                                            <th>Статус</th>
-                                            <th>Роль</th>
+                                            <th onclick="sortTable('table2', 0, 'name')">Пользователь</th>
+                                            <th onclick="sortTable('table2', 1, 'position')">Должность</th>
+                                            <th onclick="sortTable('table2', 2, 'date')">Дата регистрации</th>
+                                            <th onclick="sortTable('table2', 3, 'status')">Статус</th>
+                                            <th onclick="sortTable('table2', 4, 'role')">Роль</th>
                                             <th>Действия</th>
                                         </tr>
                                     </thead>
@@ -254,7 +254,7 @@
             <div class="modal-body">
                 <div class="form-group">
                     <label>Имя пользователя:</label>
-                    <input type="text" id="userName" readonly>
+                    <input type="text" id="modalUserName" readonly>
                 </div>
                 <div class="form-group">
                     <label>Выберите роль:</label>

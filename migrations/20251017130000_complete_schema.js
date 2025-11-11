@@ -43,6 +43,8 @@ exports.up = function(knex) {
       table.string('destination').notNullable();
       table.string('status').nullable();
       table.string('transport').nullable(); // Добавлено в миграции
+      table.integer('employeeId').unsigned().nullable().index(); // Для обратной совместимости
+      table.string('groupId').nullable(); // Для группировки командировок
     })
     // --- Связующая таблица для участников командировок ---
     .createTable('trip_participants', function (table) {

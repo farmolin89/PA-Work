@@ -11,6 +11,7 @@ import { fetchEdsData } from './edsCard.js';
 // import { subscribe } from '../common/sse-client.js';  // Временно отключено
 // +++ ДОБАВЛЕН ИМПОРТ ДЛЯ НАШЕЙ НОВОЙ КАРТОЧКИ ПОВЕРКИ +++
 import { initializeVerificationCard } from './verificationCard.js';
+import { startSessionMonitoring } from '../utils/session-monitor.js';
  
 
 /**
@@ -21,6 +22,9 @@ async function initializeDashboard() {
     try {
         // Сначала загружаем данные пользователя, так как они могут быть нужны для других запросов
         await fetchUserData();
+        
+        // Запускаем мониторинг сессии
+        startSessionMonitoring();
         
         // Запускаем все остальные запросы для карточек параллельно, чтобы ускорить загрузку.
         // Promise.all дождется, пока ВСЕ запросы завершатся.

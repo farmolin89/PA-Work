@@ -95,6 +95,8 @@ router.get('/admin/users', isAuthenticated, authController.getAllUsers);
 router.get('/admin/stats', isAuthenticated, authController.getAdminStats);
 router.delete('/admin/users/:id', isAuthenticated, authController.deleteUser);
 router.put('/admin/users/:id/role', isAuthenticated, authController.updateUserRole);
+router.post('/admin/users/:id/approve', isAuthenticated, authController.approveUser);
+router.post('/admin/users/:id/reject', isAuthenticated, authController.rejectUser);
 
 // --- Сотрудники (Employees) ---
 router.get('/employees', isAuthenticated, employeeController.getAllEmployees);
@@ -162,5 +164,16 @@ router.put('/verification/equipment/:id',
 router.delete('/verification/equipment/:id', isAuthenticated, verificationController.deleteEquipment);
 router.get('/verification/stats', isAuthenticated, verificationController.getStats);
 
+// --- Управление сессией ---
+router.post('/session/destroy', (req, res) => {
+    req.session.destroy(err => {
+        if (err) {
+            console.error("Ошибка при уничтожении сессии:", err);
+            return res.status(500).json({ success: false });
+        }
+        res.clearCookie('connect.sid');
+        res.json({ success: true });
+    });
+});
 
 module.exports = router;

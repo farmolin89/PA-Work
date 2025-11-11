@@ -26,15 +26,8 @@ module.exports = (tripService, employeeService) => ({
      */
     createTrip: async (req, res, next) => {
         try {
-            console.log('=== CREATE TRIP ===');
-            console.log('req.body keys:', Object.keys(req.body));
-            console.log('req.body:', JSON.stringify(req.body, null, 2));
-            
             const { _csrf, ...cleanData } = req.body;
             const { participants, startDate, endDate } = cleanData;
-            
-            console.log('cleanData keys:', Object.keys(cleanData));
-            console.log('cleanData:', JSON.stringify(cleanData, null, 2));
             
             const conflictingEmployee = await tripService.findConflictingEmployee(participants, startDate, endDate);
             if (conflictingEmployee) {
